@@ -1,0 +1,336 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ========================================
+   Don Kahl's Trading - Arizona Desert Theme
+   ======================================== */
+
+:root {
+  /* Base colors - Light mode */
+  --background: oklch(0.98 0.01 60);
+  --foreground: oklch(0.25 0.02 60);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.25 0.02 60);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0.02 60);
+  --primary: oklch(0.55 0.18 25);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.92 0.02 60);
+  --secondary-foreground: oklch(0.25 0.02 60);
+  --muted: oklch(0.94 0.01 60);
+  --muted-foreground: oklch(0.50 0.02 60);
+  --accent: oklch(0.70 0.15 50);
+  --accent-foreground: oklch(0.15 0.02 60);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.88 0.02 60);
+  --input: oklch(0.88 0.02 60);
+  --ring: oklch(0.55 0.18 25);
+  
+  /* Arizona Theme Accent Colors */
+  --arizona-copper: oklch(0.55 0.18 45);
+  --arizona-sunset: oklch(0.60 0.22 30);
+  --arizona-terracotta: oklch(0.50 0.15 35);
+  --arizona-sage: oklch(0.55 0.08 160);
+  --arizona-sand: oklch(0.85 0.05 75);
+  --arizona-mesa: oklch(0.40 0.10 50);
+  --arizona-sky: oklch(0.65 0.12 230);
+  --arizona-turquoise: oklch(0.60 0.14 195);
+  
+  /* Chart colors - Arizona palette */
+  --chart-1: oklch(0.55 0.18 45);
+  --chart-2: oklch(0.60 0.12 195);
+  --chart-3: oklch(0.55 0.08 160);
+  --chart-4: oklch(0.60 0.22 30);
+  --chart-5: oklch(0.70 0.15 50);
+  
+  --radius: 0.75rem;
+  
+  /* Sidebar */
+  --sidebar: oklch(0.96 0.01 60);
+  --sidebar-foreground: oklch(0.25 0.02 60);
+  --sidebar-primary: oklch(0.55 0.18 45);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.92 0.02 60);
+  --sidebar-accent-foreground: oklch(0.25 0.02 60);
+  --sidebar-border: oklch(0.88 0.02 60);
+  --sidebar-ring: oklch(0.55 0.18 45);
+}
+
+/* Dark Mode - Arizona Night */
+.dark {
+  --background: oklch(0.12 0.02 50);
+  --foreground: oklch(0.93 0.02 60);
+  --card: oklch(0.16 0.02 50);
+  --card-foreground: oklch(0.93 0.02 60);
+  --popover: oklch(0.14 0.02 50);
+  --popover-foreground: oklch(0.93 0.02 60);
+  --primary: oklch(0.70 0.18 45);
+  --primary-foreground: oklch(0.12 0.02 50);
+  --secondary: oklch(0.22 0.03 50);
+  --secondary-foreground: oklch(0.93 0.02 60);
+  --muted: oklch(0.22 0.02 50);
+  --muted-foreground: oklch(0.65 0.02 60);
+  --accent: oklch(0.25 0.04 45);
+  --accent-foreground: oklch(0.93 0.02 60);
+  --destructive: oklch(0.50 0.20 25);
+  --destructive-foreground: oklch(0.93 0.02 60);
+  --border: oklch(0.28 0.03 50);
+  --input: oklch(0.22 0.02 50);
+  --ring: oklch(0.70 0.18 45);
+  
+  /* Dark mode Arizona accents */
+  --arizona-copper: oklch(0.70 0.18 45);
+  --arizona-sunset: oklch(0.65 0.20 30);
+  --arizona-terracotta: oklch(0.55 0.15 35);
+  --arizona-sage: oklch(0.60 0.08 160);
+  --arizona-sand: oklch(0.75 0.05 75);
+  --arizona-mesa: oklch(0.45 0.10 50);
+  --arizona-sky: oklch(0.55 0.12 230);
+  --arizona-turquoise: oklch(0.65 0.14 195);
+  
+  /* Dark chart colors */
+  --chart-1: oklch(0.70 0.18 45);
+  --chart-2: oklch(0.65 0.14 195);
+  --chart-3: oklch(0.60 0.08 160);
+  --chart-4: oklch(0.65 0.20 30);
+  --chart-5: oklch(0.75 0.15 50);
+  
+  /* Sidebar dark */
+  --sidebar: oklch(0.14 0.02 50);
+  --sidebar-foreground: oklch(0.93 0.02 60);
+  --sidebar-primary: oklch(0.70 0.18 45);
+  --sidebar-primary-foreground: oklch(0.12 0.02 50);
+  --sidebar-accent: oklch(0.22 0.03 50);
+  --sidebar-accent-foreground: oklch(0.93 0.02 60);
+  --sidebar-border: oklch(0.28 0.03 50);
+  --sidebar-ring: oklch(0.70 0.18 45);
+}
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ========================================
+   Custom Utilities for Arizona Theme
+   ======================================== */
+
+@layer utilities {
+  /* Glassmorphism effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .dark .glass {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  /* Arizona gradient backgrounds */
+  .bg-arizona-gradient {
+    background: linear-gradient(135deg, 
+      var(--arizona-mesa) 0%, 
+      var(--arizona-terracotta) 50%, 
+      var(--arizona-copper) 100%
+    );
+  }
+  
+  .bg-arizona-sunset {
+    background: linear-gradient(180deg,
+      oklch(0.55 0.20 30) 0%,
+      oklch(0.60 0.22 45) 30%,
+      oklch(0.50 0.15 280) 70%,
+      oklch(0.20 0.08 280) 100%
+    );
+  }
+  
+  .bg-arizona-sky {
+    background: linear-gradient(180deg,
+      oklch(0.75 0.12 230) 0%,
+      oklch(0.65 0.10 210) 100%
+    );
+  }
+  
+  /* Glow effects */
+  .glow-copper {
+    box-shadow: 0 0 20px rgba(205, 127, 50, 0.3),
+                0 0 40px rgba(205, 127, 50, 0.15);
+  }
+  
+  .glow-turquoise {
+    box-shadow: 0 0 20px rgba(64, 224, 208, 0.25),
+                0 0 40px rgba(64, 224, 208, 0.12);
+  }
+  
+  .glow-sunset {
+    box-shadow: 0 0 20px rgba(255, 100, 50, 0.3),
+                0 0 40px rgba(255, 100, 50, 0.15);
+  }
+  
+  /* Premium card styling */
+  .card-premium {
+    background: linear-gradient(145deg, 
+      rgba(255, 255, 255, 0.05) 0%, 
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3),
+                0 1px 2px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  
+  /* Pulse animation for live indicators */
+  .pulse-live {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 1;
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    }
+    50% {
+      opacity: 0.8;
+      box-shadow: 0 0 16px rgba(34, 197, 94, 0.8);
+    }
+  }
+  
+  /* Subtle hover lift effect */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Gradient text */
+  .text-gradient-copper {
+    background: linear-gradient(135deg, 
+      var(--arizona-copper) 0%, 
+      var(--arizona-sunset) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .text-gradient-turquoise {
+    background: linear-gradient(135deg, 
+      var(--arizona-turquoise) 0%, 
+      var(--arizona-sky) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Animated border gradient */
+  .border-gradient {
+    position: relative;
+    border-radius: var(--radius);
+  }
+  
+  .border-gradient::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, 
+      var(--arizona-copper) 0%, 
+      var(--arizona-turquoise) 50%,
+      var(--arizona-sunset) 100%
+    );
+    z-index: -1;
+    opacity: 0.5;
+  }
+}
+
+/* ========================================
+   Component Overrides
+   ======================================== */
+
+/* Premium scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Enhanced focus states */
+:focus-visible {
+  outline: 2px solid var(--arizona-copper);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions globally */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}

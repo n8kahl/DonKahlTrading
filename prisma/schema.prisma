@@ -1,0 +1,16 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Dashboard {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  config    String   // JSON: { symbols, lookback, basis, days }
+  results   String   // JSON: { dates, data }
+
+  @@map("dashboards")
+}
