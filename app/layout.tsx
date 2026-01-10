@@ -1,6 +1,8 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import { ThemeProvider } from "next-themes"
+import { AIProvider } from "@/components/ai-provider"
 import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -33,9 +35,18 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <AIProvider>
+            {children}
+          </AIProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

@@ -11,6 +11,8 @@ import { ExportMenu } from "@/components/export-menu"
 import { EnhancedControls, type EnhancedDashboardConfig } from "@/components/enhanced-controls"
 import { SummaryTiles } from "@/components/summary-tiles"
 import { EnhancedHeatmapTable } from "@/components/enhanced-heatmap-table"
+import { MarketExtremesTable } from "@/components/market-extremes-table"
+import { AICompanion } from "@/components/ai-companion"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -128,6 +130,26 @@ export default function DashboardPage() {
               <SummaryTiles data={data.data} lookback={config.lookback} />
             )}
 
+            {/* Market Extremes Table - Trading Desk View */}
+            {data.rawBars && Object.keys(data.rawBars).length > 0 && (
+              <Card className="border-border overflow-hidden">
+                <CardHeader className="py-3 px-4 border-b border-border">
+                  <CardTitle className="text-base font-semibold">
+                    Market Extremes
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Days since {config.lookback}-day rolling high by price basis
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <MarketExtremesTable
+                    rawBars={data.rawBars}
+                    lookback={config.lookback}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
             {/* Main Heatmap Card */}
             <Card className="border-border overflow-hidden">
               <CardHeader className="pb-0 border-b border-border px-4">
@@ -175,6 +197,9 @@ export default function DashboardPage() {
           </>
         )}
       </main>
+
+      {/* AI Companion Chat Widget */}
+      <AICompanion />
     </div>
   )
 }

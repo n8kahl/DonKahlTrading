@@ -211,6 +211,23 @@ export interface ApiError {
 // Configuration
 // -----------------------------------------------------------------------------
 
+// Known market indices that require the I: prefix for Polygon API
+const KNOWN_INDICES = new Set([
+  'SPX',   // S&P 500
+  'NDX',   // Nasdaq 100
+  'RUT',   // Russell 2000
+  'VIX',   // CBOE Volatility Index
+  'SOX',   // PHLX Semiconductor
+  'DJI',   // Dow Jones Industrial
+  'IXIC',  // Nasdaq Composite
+  'COMP',  // Nasdaq Composite (alternate)
+  'NYA',   // NYSE Composite
+  'OEX',   // S&P 100
+  'MID',   // S&P MidCap 400
+  'SML',   // S&P SmallCap 600
+])
+
+// Ticker aliases that need specific mapping
 const TICKER_MAPPING: Record<string, string> = {
   IXIC: 'I:COMP',
   DJI: 'I:DJI',
@@ -238,14 +255,33 @@ function getApiKey(): string | null {
   return process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || null
 }
 
-function normalizeSymbol(symbol: string, isIndex = false): string {
-  if (TICKER_MAPPING[symbol]) {
-    return TICKER_MAPPING[symbol]
+/**
+ * Normalizes a ticker symbol for Polygon API.
+ * - Indices (SPX, NDX, RUT, VIX, etc.) get the I: prefix
+ * - Stocks (AAPL, NVDA, SPY, QQQ) do NOT get the I: prefix
+ * - ETFs tracking indices (SPY, QQQ, IWM) are stocks, not indices
+ */
+export function normalizeSymbol(symbol: string): string {
+  // Remove any existing I: prefix and uppercase for consistent comparison
+  const cleanSymbol = symbol.replace(/^I:/i, '').toUpperCase().trim()
+
+  // Check for explicit ticker mapping first (handles aliases like IXIC -> I:COMP)
+  if (TICKER_MAPPING[cleanSymbol]) {
+    return TICKER_MAPPING[cleanSymbol]
   }
-  if (isIndex && !symbol.startsWith('I:')) {
-    return `I:${symbol}`
+
+  // If the symbol is already prefixed with I: and it's in our known indices, keep it
+  if (symbol.toUpperCase().startsWith('I:') && KNOWN_INDICES.has(cleanSymbol)) {
+    return `I:${cleanSymbol}`
   }
-  return symbol
+
+  // Auto-detect: If it's a known index, add the I: prefix
+  if (KNOWN_INDICES.has(cleanSymbol)) {
+    return `I:${cleanSymbol}`
+  }
+
+  // Otherwise it's a stock/ETF - return without prefix
+  return cleanSymbol
 }
 
 function createError(
@@ -758,7 +794,7 @@ export async function fetchDailyBars(symbol: string, days = 252): Promise<DailyB
     throw new Error('MASSIVE_API_KEY is not configured')
   }
 
-  const normalizedSymbol = normalizeSymbol(symbol, true)
+  const normalizedSymbol = normalizeSymbol(symbol)
 
   const toDate = new Date()
   const fromDate = new Date()
