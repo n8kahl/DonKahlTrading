@@ -44,16 +44,16 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
   }
 
   return (
-    <div className="space-y-4 p-5 bg-muted/30">
+    <div className="space-y-3 p-3 bg-muted">
       {/* Header Row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Settings2 className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-semibold">Analysis Controls</h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Settings2 className="w-4 h-4 text-primary flex-shrink-0" />
+          <h3 className="text-sm font-semibold truncate">Analysis Controls</h3>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           {lastUpdated && (
-            <span className="text-xs text-muted-foreground hidden sm:block">
+            <span className="text-xs text-muted-foreground hidden md:block">
               Last refresh: {lastUpdated.toLocaleTimeString()}
             </span>
           )}
@@ -97,18 +97,17 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
             onClick={onRefresh}
             size="sm"
             disabled={disabled}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${disabled ? 'animate-spin' : ''}`} />
-            Refresh
+            <RefreshCw className={`h-4 w-4 sm:mr-2 ${disabled ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
       {/* Controls Grid */}
-      <div className="flex flex-wrap items-end gap-4">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2 sm:gap-3">
         {/* Universe Selection */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
           <Label className="text-xs text-muted-foreground font-medium">Universe</Label>
           <Tabs
             value={config.universe}
@@ -120,11 +119,11 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
               })
             }
           >
-            <TabsList className="h-9">
-              <TabsTrigger value="core" className="text-xs">
+            <TabsList className="h-8 w-full sm:w-auto">
+              <TabsTrigger value="core" className="text-xs flex-1 sm:flex-none px-3">
                 Core Indices
               </TabsTrigger>
-              <TabsTrigger value="custom" className="text-xs">
+              <TabsTrigger value="custom" className="text-xs flex-1 sm:flex-none px-3">
                 Custom
               </TabsTrigger>
             </TabsList>
@@ -133,7 +132,7 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
 
         {/* Custom Symbols Input */}
         {config.universe === "custom" && (
-          <div className="flex flex-col gap-1.5 min-w-[200px]">
+          <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1 sm:min-w-[200px]">
             <Label htmlFor="symbols" className="text-xs text-muted-foreground font-medium">
               Symbols
             </Label>
@@ -143,7 +142,7 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
               onChange={(e) => onConfigChange({ ...config, symbols: e.target.value })}
               placeholder="DJI,SPX,IXIC"
               disabled={disabled}
-              className="h-9 text-sm font-mono"
+              className="h-8 text-sm font-mono"
             />
           </div>
         )}
@@ -156,7 +155,7 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
             onValueChange={(value: any) => onConfigChange({ ...config, metric: value })}
             disabled={disabled}
           >
-            <SelectTrigger className="h-9 w-[160px]">
+            <SelectTrigger className="h-8 w-full sm:min-w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -177,7 +176,7 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
             onValueChange={(value) => onConfigChange({ ...config, lookback: Number.parseInt(value) })}
             disabled={disabled}
           >
-            <SelectTrigger className="h-9 w-[100px]">
+            <SelectTrigger className="h-8 w-full sm:min-w-[100px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -197,7 +196,7 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
             onValueChange={(value: any) => onConfigChange({ ...config, basis: value })}
             disabled={disabled}
           >
-            <SelectTrigger className="h-9 w-[150px]">
+            <SelectTrigger className="h-8 w-full sm:min-w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -215,7 +214,7 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
             onValueChange={(value) => onConfigChange({ ...config, days: Number.parseInt(value) })}
             disabled={disabled}
           >
-            <SelectTrigger className="h-9 w-[120px]">
+            <SelectTrigger className="h-8 w-full sm:min-w-[100px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -228,14 +227,14 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
         </div>
 
         {/* Sort By */}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5 col-span-2 sm:col-span-1">
           <Label className="text-xs text-muted-foreground font-medium">Sort By</Label>
           <Select
             value={config.sortBy}
             onValueChange={(value) => onConfigChange({ ...config, sortBy: value })}
             disabled={disabled}
           >
-            <SelectTrigger className="h-9 w-[170px]">
+            <SelectTrigger className="h-8 w-full sm:min-w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

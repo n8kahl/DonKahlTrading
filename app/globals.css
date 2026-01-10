@@ -4,113 +4,88 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ========================================
-   Don Kahl's Trading - Arizona Desert Theme
-   Professional Trading Dashboard Styling
+   Tucson Trader - Professional Trading UI
+   Clean, Data-Dense, Light Theme
    ======================================== */
 
 :root {
-  /* Base colors - Light mode */
-  --background: oklch(0.98 0.005 75);
-  --foreground: oklch(0.20 0.02 60);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.02 60);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.02 60);
-  --primary: oklch(0.50 0.16 40);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.94 0.01 75);
-  --secondary-foreground: oklch(0.20 0.02 60);
-  --muted: oklch(0.96 0.005 75);
-  --muted-foreground: oklch(0.45 0.02 60);
-  --accent: oklch(0.94 0.01 75);
-  --accent-foreground: oklch(0.20 0.02 60);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.90 0.01 75);
-  --input: oklch(0.90 0.01 75);
-  --ring: oklch(0.50 0.16 40);
+  /* Light Mode - Professional Trading */
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #fafafa;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #525252;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #d4d4d4;
+  --input: #d4d4d4;
+  --ring: #2563eb;
 
-  /* Arizona Theme Accent Colors */
-  --arizona-copper: oklch(0.55 0.16 40);
-  --arizona-sunset: oklch(0.58 0.18 28);
-  --arizona-terracotta: oklch(0.48 0.14 35);
-  --arizona-sage: oklch(0.55 0.06 150);
-  --arizona-sand: oklch(0.88 0.04 80);
-  --arizona-mesa: oklch(0.38 0.08 45);
-  --arizona-turquoise: oklch(0.58 0.12 190);
+  /* Semantic Trading Colors */
+  --profit: #16a34a;
+  --loss: #dc2626;
+  --warning: #d97706;
+  --info: #2563eb;
+
+  /* Reduced radius for professional look */
+  --radius: 0.25rem;
 
   /* Chart colors */
-  --chart-1: oklch(0.55 0.16 40);
-  --chart-2: oklch(0.58 0.12 190);
-  --chart-3: oklch(0.55 0.06 150);
-  --chart-4: oklch(0.58 0.18 28);
-  --chart-5: oklch(0.65 0.12 50);
-
-  --radius: 0.5rem;
-
-  /* Sidebar */
-  --sidebar: oklch(0.98 0.005 75);
-  --sidebar-foreground: oklch(0.20 0.02 60);
-  --sidebar-primary: oklch(0.50 0.16 40);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.01 75);
-  --sidebar-accent-foreground: oklch(0.20 0.02 60);
-  --sidebar-border: oklch(0.90 0.01 75);
-  --sidebar-ring: oklch(0.50 0.16 40);
+  --chart-1: #2563eb;
+  --chart-2: #16a34a;
+  --chart-3: #dc2626;
+  --chart-4: #d97706;
+  --chart-5: #7c3aed;
 }
 
-/* Dark Mode - Arizona Night */
+/* Dark Mode */
 .dark {
-  --background: oklch(0.13 0.015 45);
-  --foreground: oklch(0.92 0.01 75);
-  --card: oklch(0.17 0.015 45);
-  --card-foreground: oklch(0.92 0.01 75);
-  --popover: oklch(0.17 0.015 45);
-  --popover-foreground: oklch(0.92 0.01 75);
-  --primary: oklch(0.68 0.15 40);
-  --primary-foreground: oklch(0.13 0.015 45);
-  --secondary: oklch(0.22 0.02 45);
-  --secondary-foreground: oklch(0.92 0.01 75);
-  --muted: oklch(0.22 0.015 45);
-  --muted-foreground: oklch(0.60 0.01 75);
-  --accent: oklch(0.24 0.02 45);
-  --accent-foreground: oklch(0.92 0.01 75);
-  --destructive: oklch(0.50 0.18 25);
-  --destructive-foreground: oklch(0.92 0.01 75);
-  --border: oklch(0.28 0.02 45);
-  --input: oklch(0.22 0.015 45);
-  --ring: oklch(0.68 0.15 40);
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #171717;
+  --card-foreground: #fafafa;
+  --popover: #171717;
+  --popover-foreground: #fafafa;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #262626;
+  --secondary-foreground: #fafafa;
+  --muted: #262626;
+  --muted-foreground: #a3a3a3;
+  --accent: #262626;
+  --accent-foreground: #fafafa;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #404040;
+  --input: #404040;
+  --ring: #3b82f6;
 
-  /* Dark mode Arizona accents */
-  --arizona-copper: oklch(0.68 0.15 40);
-  --arizona-sunset: oklch(0.62 0.16 28);
-  --arizona-terracotta: oklch(0.52 0.12 35);
-  --arizona-sage: oklch(0.58 0.06 150);
-  --arizona-sand: oklch(0.72 0.04 80);
-  --arizona-mesa: oklch(0.42 0.08 45);
-  --arizona-turquoise: oklch(0.62 0.12 190);
+  /* Semantic Trading Colors - Dark */
+  --profit: #22c55e;
+  --loss: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
 
-  /* Dark chart colors */
-  --chart-1: oklch(0.68 0.15 40);
-  --chart-2: oklch(0.62 0.12 190);
-  --chart-3: oklch(0.58 0.06 150);
-  --chart-4: oklch(0.62 0.16 28);
-  --chart-5: oklch(0.72 0.12 50);
-
-  /* Sidebar dark */
-  --sidebar: oklch(0.15 0.015 45);
-  --sidebar-foreground: oklch(0.92 0.01 75);
-  --sidebar-primary: oklch(0.68 0.15 40);
-  --sidebar-primary-foreground: oklch(0.13 0.015 45);
-  --sidebar-accent: oklch(0.22 0.02 45);
-  --sidebar-accent-foreground: oklch(0.92 0.01 75);
-  --sidebar-border: oklch(0.28 0.02 45);
-  --sidebar-ring: oklch(0.68 0.15 40);
+  /* Chart colors - Dark */
+  --chart-1: #3b82f6;
+  --chart-2: #22c55e;
+  --chart-3: #ef4444;
+  --chart-4: #f59e0b;
+  --chart-5: #8b5cf6;
 }
 
 @theme inline {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -135,18 +110,10 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 1px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 6px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @layer base {
@@ -155,74 +122,33 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
 }
 
 /* ========================================
-   Professional Component Styling
+   Utility Classes
    ======================================== */
 
-@layer components {
-
-  /* Premium card with subtle shadow */
-  .card-premium {
-    background: var(--card);
-    border: 1px solid var(--border);
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.08),
-      0 4px 12px rgba(0, 0, 0, 0.04);
+@layer utilities {
+  /* Monospace numeric styling for data */
+  .font-numeric {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 
-  .dark .card-premium {
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.3),
-      0 4px 12px rgba(0, 0, 0, 0.2);
+  /* Profit/Loss colors */
+  .text-profit {
+    color: var(--profit);
   }
 
-  /* Hover lift effect - subtle */
-  .hover-lift {
-    transition: transform 150ms ease, box-shadow 150ms ease;
+  .text-loss {
+    color: var(--loss);
   }
 
-  .hover-lift:hover {
-    transform: translateY(-1px);
-  }
-
-  /* Live pulse indicator */
-  .pulse-live {
-    animation: pulse-live 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-live {
-
-    0%,
-    100% {
-      opacity: 1;
-    }
-
-    50% {
-      opacity: 0.6;
-    }
-  }
-
-  /* Gradient text for branding */
-  .text-gradient-copper {
-    background: linear-gradient(135deg,
-        var(--arizona-copper) 0%,
-        var(--arizona-sunset) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .text-gradient-turquoise {
-    background: linear-gradient(135deg,
-        var(--arizona-turquoise) 0%,
-        oklch(0.65 0.10 200) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .text-warning {
+    color: var(--warning);
   }
 }
 
@@ -231,38 +157,34 @@
    ======================================== */
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--muted);
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 5px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--muted-foreground);
-  background-clip: content-box;
 }
 
 /* ========================================
-   Focus States - Professional
+   Focus States
    ======================================== */
 
 :focus-visible {
   outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 /* ========================================
-   Remove Janky Transitions
-   Only animate specific properties
+   Form Elements
    ======================================== */
 
 button,
@@ -270,18 +192,21 @@ button,
 input,
 select,
 textarea {
-  transition: background-color 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease;
+  transition: border-color 100ms ease, background-color 100ms ease;
 }
 
-/* Card hover transitions */
-.card-premium {
-  transition: transform 150ms ease, box-shadow 150ms ease;
+/* ========================================
+   Mobile Touch Targets
+   ======================================== */
+
+@media (max-width: 640px) {
+  button,
+  [role="button"] {
+    min-height: 40px;
+  }
 }
 
-/* Disable transitions on page load */
-.no-transitions * {
-  transition: none !important;
+/* Prevent layout shift from scrollbar */
+html {
+  scrollbar-gutter: stable;
 }

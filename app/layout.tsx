@@ -6,7 +6,7 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Don Kahl's Trading | Market Analysis Dashboard",
+  title: "Tucson Trader | Market Analysis Dashboard",
   description: "Professional market extremes and heatmap analysis for trading",
   icons: {
     icon: [
@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body className={`${inter.className} antialiased`}>
         {children}
       </body>

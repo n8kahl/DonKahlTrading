@@ -126,17 +126,17 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
   return (
     <>
       <TooltipProvider>
-        <div className="relative w-full overflow-auto rounded-lg border border-border/50">
+        <div className="relative w-full overflow-auto rounded border border-border">
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10">
               <tr>
-                <th className="sticky left-0 z-20 bg-muted/80 backdrop-blur-sm border-b border-r border-border/50 px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+                <th className="sticky left-0 z-20 bg-muted border-b border-r border-border px-3 py-2 text-left font-semibold text-xs uppercase tracking-wider text-muted-foreground">
                   Date
                 </th>
                 {symbols.map((symbol) => (
                   <th
                     key={symbol}
-                    className="bg-muted/80 backdrop-blur-sm border-b border-border/50 px-4 py-3 text-center font-bold text-xs uppercase tracking-wider text-foreground"
+                    className="bg-muted border-b border-border px-3 py-2 text-center font-bold text-xs uppercase tracking-wider text-foreground"
                   >
                     {symbol}
                   </th>
@@ -147,16 +147,16 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
               {dates.map((date, dateIndex) => (
                 <tr
                   key={date}
-                  className="group hover:bg-muted/30 transition-colors"
+                  className="hover:bg-muted/50 transition-colors"
                 >
-                  <td className="sticky left-0 z-10 bg-card/95 backdrop-blur-sm border-b border-r border-border/30 px-4 py-2.5 font-mono text-xs text-muted-foreground whitespace-nowrap group-hover:bg-muted/50">
+                  <td className="sticky left-0 z-10 bg-card border-b border-r border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
                     {date}
                   </td>
                   {symbols.map((symbol) => {
                     const metrics = data[symbol]?.[dateIndex]
                     if (!metrics) {
                       return (
-                        <td key={symbol} className="border-b border-border/30 px-4 py-2.5 text-center text-muted-foreground/50">
+                        <td key={symbol} className="border-b border-border px-3 py-2 text-center text-muted-foreground/50">
                           —
                         </td>
                       )
@@ -167,8 +167,8 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
                         <TooltipTrigger asChild>
                           <td
                             className={cn(
-                              "border-b border-border/20 px-3 py-2 text-center font-mono text-xs tabular-nums cursor-pointer",
-                              "transition-all duration-150 hover:scale-105 hover:shadow-lg hover:z-10 relative",
+                              "border-b border-border/50 px-3 py-2 text-center font-mono text-xs tabular-nums cursor-pointer",
+                              "transition-colors hover:brightness-110",
                               getTextColor(metrics)
                             )}
                             style={{
@@ -180,28 +180,28 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
                           </td>
                         </TooltipTrigger>
                         <TooltipContent
-                          className="max-w-xs bg-popover/95 backdrop-blur-sm border-border/50"
+                          className="max-w-xs bg-popover border-border"
                           side="top"
                         >
                           <div className="space-y-2 text-xs p-1">
-                            <p className="font-bold text-sm border-b border-border/50 pb-1.5">
+                            <p className="font-bold text-sm border-b border-border pb-1.5">
                               {symbol} • {date}
                             </p>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                               <span className="text-muted-foreground">Days since high:</span>
-                              <span className="font-mono font-medium text-[var(--arizona-turquoise)]">
+                              <span className="font-mono font-medium text-emerald-600">
                                 {metrics.daysSinceHigh}
                               </span>
                               <span className="text-muted-foreground">% from high:</span>
-                              <span className="font-mono font-medium text-[var(--arizona-turquoise)]">
+                              <span className="font-mono font-medium text-emerald-600">
                                 {metrics.pctFromHigh.toFixed(2)}%
                               </span>
                               <span className="text-muted-foreground">Days since low:</span>
-                              <span className="font-mono font-medium text-[var(--arizona-sunset)]">
+                              <span className="font-mono font-medium text-red-600">
                                 {metrics.daysSinceLow}
                               </span>
                               <span className="text-muted-foreground">% from low:</span>
-                              <span className="font-mono font-medium text-[var(--arizona-sunset)]">
+                              <span className="font-mono font-medium text-red-600">
                                 {metrics.pctFromLow.toFixed(2)}%
                               </span>
                               <span className="text-muted-foreground">Rolling high:</span>

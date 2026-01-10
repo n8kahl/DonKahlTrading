@@ -32,93 +32,77 @@ export function SummaryTiles({ data, lookback }: SummaryTilesProps) {
       value: newHighsToday,
       total: totalSymbols,
       icon: TrendingUp,
-      gradient: "from-emerald-500/20 to-emerald-600/10",
-      iconBg: "bg-emerald-500",
+      iconBg: "bg-emerald-600",
       iconColor: "text-white",
-      glow: "shadow-emerald-500/20",
-      valueColor: "text-emerald-400",
+      valueColor: "text-emerald-600",
+      progressColor: "bg-emerald-600",
     },
     {
       label: "Within 1% of Highs",
       value: within1PctOfHighs,
       total: totalSymbols,
       icon: Target,
-      gradient: "from-[var(--arizona-turquoise)]/20 to-[var(--arizona-sky)]/10",
-      iconBg: "bg-[var(--arizona-turquoise)]",
+      iconBg: "bg-primary",
       iconColor: "text-white",
-      glow: "shadow-[var(--arizona-turquoise)]/20",
-      valueColor: "text-[var(--arizona-turquoise)]",
+      valueColor: "text-primary",
+      progressColor: "bg-primary",
     },
     {
       label: `New ${lookback}d Lows`,
       value: newLowsToday,
       total: totalSymbols,
       icon: TrendingDown,
-      gradient: "from-red-500/20 to-red-600/10",
-      iconBg: "bg-red-500",
+      iconBg: "bg-red-600",
       iconColor: "text-white",
-      glow: "shadow-red-500/20",
-      valueColor: "text-red-400",
+      valueColor: "text-red-600",
+      progressColor: "bg-red-600",
     },
     {
       label: "Near 1% of Lows",
       value: within1PctOfLows,
       total: totalSymbols,
       icon: AlertTriangle,
-      gradient: "from-[var(--arizona-sunset)]/20 to-[var(--arizona-copper)]/10",
-      iconBg: "bg-[var(--arizona-sunset)]",
+      iconBg: "bg-amber-600",
       iconColor: "text-white",
-      glow: "shadow-[var(--arizona-sunset)]/20",
-      valueColor: "text-[var(--arizona-sunset)]",
+      valueColor: "text-amber-600",
+      progressColor: "bg-amber-600",
     },
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {tiles.map((tile, index) => {
         const Icon = tile.icon
         const percentage = totalSymbols > 0 ? Math.round((tile.value / totalSymbols) * 100) : 0
 
         return (
-          <Card
-            key={index}
-            className={`
-              card-premium border-border/50 overflow-hidden hover-lift cursor-default
-              relative group
-            `}
-          >
-            {/* Gradient background overlay */}
-            <div className={`absolute inset-0 bg-gradient-to-br ${tile.gradient} opacity-50`} />
-
-            <CardContent className="pt-5 pb-4 relative">
+          <Card key={index} className="border-border">
+            <CardContent className="pt-4 pb-3">
               <div className="flex items-start justify-between">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     {tile.label}
                   </p>
-                  <div className="flex items-baseline gap-2">
-                    <span className={`text-3xl font-bold tabular-nums ${tile.valueColor}`}>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className={`text-2xl font-bold font-mono tabular-nums ${tile.valueColor}`}>
                       {tile.value}
                     </span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-muted-foreground font-mono">
                       / {tile.total}
                     </span>
                   </div>
                   {/* Progress bar */}
-                  <div className="h-1 w-full bg-muted/50 rounded-full overflow-hidden">
+                  <div className="h-1 w-full bg-muted rounded overflow-hidden">
                     <div
-                      className={`h-full ${tile.iconBg} transition-all duration-500`}
+                      className={`h-full ${tile.progressColor}`}
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
                 </div>
 
                 {/* Icon */}
-                <div className={`
-                  p-2.5 rounded-xl ${tile.iconBg} ${tile.glow}
-                  shadow-lg group-hover:scale-110 transition-transform duration-200
-                `}>
-                  <Icon className={`h-5 w-5 ${tile.iconColor}`} />
+                <div className={`p-2 rounded ${tile.iconBg}`}>
+                  <Icon className={`h-4 w-4 ${tile.iconColor}`} />
                 </div>
               </div>
             </CardContent>
