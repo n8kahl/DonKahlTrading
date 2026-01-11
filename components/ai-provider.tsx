@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react'
 import type { ResultEnvelope } from '@/components/ai-cards/types'
 
 // -----------------------------------------------------------------------------
@@ -24,9 +24,14 @@ interface AIContextValue {
   messages: Message[]
   isLoading: boolean
   error: string | null
+  processingStatus: string | null // For showing current operation status
   sendMessage: (content: string) => Promise<void>
   clearMessages: () => void
+  abortRequest: () => void // Allow users to cancel long-running requests
 }
+
+// Timeout for AI requests (2 minutes for complex queries)
+const AI_REQUEST_TIMEOUT = 120000
 
 // -----------------------------------------------------------------------------
 // Context
@@ -42,10 +47,31 @@ export function AIProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const abortRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+      setIsLoading(false)
+      setProcessingStatus(null)
+      setError('Request cancelled')
+    }
+  }, [])
 
   const sendMessage = useCallback(async (content: string) => {
+    // Abort any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
     setIsLoading(true)
     setError(null)
+    setProcessingStatus('Sending request...')
 
     // Add user message
     const userMessage: Message = {
@@ -55,9 +81,17 @@ export function AIProvider({ children }: { children: ReactNode }) {
     }
     setMessages((prev) => [...prev, userMessage])
 
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      abortController.abort()
+      setError('Request timed out. Please try a simpler query.')
+    }, AI_REQUEST_TIMEOUT)
+
     try {
       console.log('[AI Provider] Sending message:', content)
       console.log('[AI Provider] Total messages:', messages.length + 1)
+
+      setProcessingStatus('Connecting to AI...')
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -67,6 +101,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           messages: [...messages, { role: 'user', content }],
         }),
+        signal: abortController.signal,
       })
 
       console.log('[AI Provider] Response status:', response.status)
@@ -91,6 +126,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
 
       // Handle SSE streaming response with tool results
       console.log('[AI Provider] Starting stream read...')
+      setProcessingStatus('Analyzing your request...')
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let assistantContent = ''
@@ -114,6 +150,12 @@ export function AIProvider({ children }: { children: ReactNode }) {
           break
         }
 
+        // Check if aborted
+        if (abortController.signal.aborted) {
+          reader.cancel()
+          break
+        }
+
         chunkCount++
         buffer += decoder.decode(value, { stream: true })
 
@@ -130,6 +172,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
             // Text delta
             if (data.type === 'text-delta' && data.delta) {
               assistantContent += data.delta
+              setProcessingStatus(null) // Clear status once we have content
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMessage.id
@@ -143,6 +186,16 @@ export function AIProvider({ children }: { children: ReactNode }) {
             if (data.type === 'tool-input-start' && data.toolCallId && data.toolName) {
               console.log('[AI Provider] Tool call:', data.toolName)
               pendingToolCalls.set(data.toolCallId, data.toolName)
+              // Show friendly status for tool calls
+              const toolStatusMap: Record<string, string> = {
+                'universal_query': 'Fetching market data...',
+                'show_market_pulse': 'Getting market pulse...',
+                'show_extremes_heatmap': 'Building heatmap...',
+                'analyze_options': 'Analyzing options chain...',
+                'get_market_status': 'Checking market status...',
+                'show_market_movers': 'Finding market movers...',
+              }
+              setProcessingStatus(toolStatusMap[data.toolName] || 'Processing data...')
             }
 
             // Tool output - capture result
@@ -154,6 +207,7 @@ export function AIProvider({ children }: { children: ReactNode }) {
                 toolName,
                 result: data.output as ResultEnvelope,
               })
+              setProcessingStatus(null) // Clear status after tool completes
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMessage.id
@@ -177,9 +231,17 @@ export function AIProvider({ children }: { children: ReactNode }) {
         )
       )
     } catch (err) {
-      console.error('[AI Provider] Error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to send message')
+      if (err instanceof Error && err.name === 'AbortError') {
+        // Request was cancelled - error already set
+        console.log('[AI Provider] Request aborted')
+      } else {
+        console.error('[AI Provider] Error:', err)
+        setError(err instanceof Error ? err.message : 'Failed to send message')
+      }
     } finally {
+      clearTimeout(timeoutId)
+      abortControllerRef.current = null
+      setProcessingStatus(null)
       console.log('[AI Provider] Request complete')
       setIsLoading(false)
     }
@@ -196,8 +258,10 @@ export function AIProvider({ children }: { children: ReactNode }) {
         messages,
         isLoading,
         error,
+        processingStatus,
         sendMessage,
         clearMessages,
+        abortRequest,
       }}
     >
       {children}

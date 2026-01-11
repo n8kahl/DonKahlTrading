@@ -163,7 +163,7 @@ function MessageBubble({
 // Typing Indicator
 // -----------------------------------------------------------------------------
 
-function TypingIndicator() {
+function TypingIndicator({ status, onCancel }: { status?: string | null; onCancel?: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -175,19 +175,33 @@ function TypingIndicator() {
         <Bot className="w-3.5 h-3.5 text-white" />
       </div>
       <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3">
-        <div className="flex gap-1">
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="w-2 h-2 rounded-full bg-white/60"
-              animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
-              transition={{
-                duration: 0.8,
-                repeat: Infinity,
-                delay: i * 0.15,
-              }}
-            />
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className="w-2 h-2 rounded-full bg-white/60"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 1, 0.4] }}
+                transition={{
+                  duration: 0.8,
+                  repeat: Infinity,
+                  delay: i * 0.15,
+                }}
+              />
+            ))}
+          </div>
+          {status && (
+            <span className="text-xs text-white/50 ml-2">{status}</span>
+          )}
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="ml-2 text-xs text-white/40 hover:text-white/70 transition-colors"
+              title="Cancel request"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
@@ -268,6 +282,7 @@ function ChatContent({
   messages,
   isLoading,
   error,
+  processingStatus,
   input,
   setInput,
   handleSend,
@@ -276,12 +291,14 @@ function ChatContent({
   handleExport,
   handlePin,
   handleExpand,
+  handleCancel,
   scrollRef,
   isSharing,
 }: {
   messages: ChatMessage[]
   isLoading: boolean
   error: string | null
+  processingStatus?: string | null
   input: string
   setInput: (v: string) => void
   handleSend: () => void
@@ -290,6 +307,7 @@ function ChatContent({
   handleExport: () => void
   handlePin: (config: PinConfig) => void
   handleExpand: (result: ToolResult) => void
+  handleCancel?: () => void
   scrollRef: React.RefObject<HTMLDivElement | null>
   isSharing?: boolean
 }) {
@@ -384,7 +402,7 @@ function ChatContent({
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} onPin={handlePin} onExpand={handleExpand} />
               ))}
-              <AnimatePresence>{isLoading && <TypingIndicator />}</AnimatePresence>
+              <AnimatePresence>{isLoading && <TypingIndicator status={processingStatus} onCancel={handleCancel} />}</AnimatePresence>
               {error && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -546,7 +564,7 @@ function DesktopChatPanel({
 
 export function AICompanion() {
   const isMobile = useIsMobile()
-  const { messages: aiMessages, isLoading, error, sendMessage, clearMessages } = useAI()
+  const { messages: aiMessages, isLoading, error, processingStatus, sendMessage, clearMessages, abortRequest } = useAI()
 
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
@@ -681,6 +699,7 @@ export function AICompanion() {
         messages={messages}
         isLoading={isLoading}
         error={error}
+        processingStatus={processingStatus}
         input={input}
         setInput={setInput}
         handleSend={handleSend}
@@ -689,6 +708,7 @@ export function AICompanion() {
         handleExport={handleExport}
         handlePin={handlePin}
         handleExpand={handleExpand}
+        handleCancel={abortRequest}
         scrollRef={scrollRef}
         isSharing={isSharing}
       />

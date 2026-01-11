@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { fetchDailyBars, computeHeatmap, getMockHeatmapData, buildResponseMeta } from "@/lib/massive-api"
+import { fetchDailyBars, computeHeatmap, buildResponseMeta } from "@/lib/massive-api"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -8,16 +8,13 @@ export async function GET(request: NextRequest) {
   const basis = (searchParams.get("basis") || "close") as "close" | "intraday"
   const days = Number.parseInt(searchParams.get("days") || "63")
 
-  const symbols = symbolsParam.split(",").map((s) => s.trim())
+  const symbols = symbolsParam.split(",").map((s) => s.trim().toUpperCase())
 
   if (!process.env.MASSIVE_API_KEY) {
-    const mockData = getMockHeatmapData(symbols, days)
-    return NextResponse.json({
-      ...mockData,
-      isMock: true,
-      error: "MASSIVE_API_KEY not configured",
-      meta: buildResponseMeta(),
-    })
+    return NextResponse.json(
+      { error: "Market data service not configured. Please contact support." },
+      { status: 503 }
+    )
   }
 
   try {
@@ -28,6 +25,7 @@ export async function GET(request: NextRequest) {
 
     const dates: string[] = []
     const data: Record<string, number[]> = {}
+    const failedSymbols: string[] = []
 
     barsResults.forEach((result, index) => {
       const symbol = symbols[index]
@@ -49,30 +47,34 @@ export async function GET(request: NextRequest) {
 
         data[symbol] = displayValues
       } else {
-        // Symbol failed, use empty array
+        // Symbol failed, track it
+        failedSymbols.push(symbol)
         data[symbol] = []
       }
     })
 
-    // If no dates were populated, use mock dates
+    // If no data was fetched at all, return an error
     if (dates.length === 0) {
-      const today = new Date()
-      for (let i = days - 1; i >= 0; i--) {
-        const date = new Date(today)
-        date.setDate(date.getDate() - i)
-        dates.push(date.toISOString().split("T")[0])
-      }
+      return NextResponse.json(
+        {
+          error: "Unable to fetch market data. Please try again later.",
+          failedSymbols,
+        },
+        { status: 502 }
+      )
     }
 
-    return NextResponse.json({ dates, data, isMock: false, meta: buildResponseMeta() })
-  } catch (error) {
-    // Return mock data on error
-    const mockData = getMockHeatmapData(symbols, days)
     return NextResponse.json({
-      ...mockData,
-      isMock: true,
-      error: error instanceof Error ? error.message : "Unknown error",
+      dates,
+      data,
       meta: buildResponseMeta(),
+      ...(failedSymbols.length > 0 && { warnings: { failedSymbols } })
     })
+  } catch (error) {
+    console.error("[Heatmap API] Error:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to fetch market data" },
+      { status: 500 }
+    )
   }
 }

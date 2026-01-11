@@ -20,7 +20,13 @@ interface SharedDashboard {
   results: {
     dates: string[]
     data: Record<string, HeatmapMetrics[]>
+    basisHigh?: Record<string, HeatmapMetrics[]>
+    basisClose?: Record<string, HeatmapMetrics[]>
     rawBars?: Record<string, any[]>
+    sanity?: {
+      staleSymbols: string[]
+      constantDays: string[]
+    }
   }
 }
 

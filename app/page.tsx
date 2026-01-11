@@ -109,11 +109,28 @@ export default function DashboardPage() {
     setDrillSheetOpen(true)
   }, [])
 
-  const handlePin = useCallback((symbol: string) => {
-    // Stub for pin functionality
-    console.log('Pin symbol:', symbol)
-    // TODO: Implement pin to dashboard
-  }, [])
+  const handlePin = useCallback(async (symbol: string) => {
+    try {
+      const response = await fetch('/api/pinned-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'symbol_watch',
+          title: `Watch: ${symbol}`,
+          config: { symbol, lookback: config.lookback, basis: config.basis },
+        }),
+      })
+
+      if (response.ok) {
+        // Success feedback could be shown via a toast
+        console.log(`Pinned ${symbol} to dashboard`)
+      } else {
+        console.error('Failed to pin symbol')
+      }
+    } catch (err) {
+      console.error('Error pinning symbol:', err)
+    }
+  }, [config.lookback, config.basis])
 
   // Compute date range from data
   const dataDateRange = data?.dates?.length

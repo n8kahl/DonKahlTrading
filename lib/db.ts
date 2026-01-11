@@ -19,8 +19,13 @@ function createPool(): Pool {
   const connectionString = process.env.DATABASE_URL
 
   if (!connectionString) {
-    // Return a dummy pool for build time (will fail at runtime if no DATABASE_URL)
-    return new Pool({ connectionString: 'postgresql://localhost:5432/dummy' })
+    // During build time, create a pool that will throw clear errors at runtime
+    console.warn('[Database] DATABASE_URL not configured - database operations will fail')
+    // Create pool with empty connection string - will fail on actual connection attempt
+    return new Pool({
+      connectionString: '',
+      max: 1,
+    })
   }
 
   return new Pool({
