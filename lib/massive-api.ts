@@ -1330,28 +1330,6 @@ export function computeHeatmap(bars: DailyBar[], lookback: number, basis: 'close
 }
 
 // -----------------------------------------------------------------------------
-// Mock/Fallback Data (existing, preserved)
-// -----------------------------------------------------------------------------
-
-export function getMockHeatmapData(symbols: string[], days: number): HeatmapData {
-  const dates: string[] = []
-  const today = new Date()
-
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    dates.push(date.toISOString().split('T')[0])
-  }
-
-  const data: Record<string, number[]> = {}
-  symbols.forEach((symbol) => {
-    data[symbol] = Array.from({ length: days }, () => Math.floor(Math.random() * 64))
-  })
-
-  return { dates, data }
-}
-
-// -----------------------------------------------------------------------------
 // Sector ETF Mapping
 // -----------------------------------------------------------------------------
 

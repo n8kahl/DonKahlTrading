@@ -248,7 +248,7 @@ export default function DashboardPage() {
                   basisClose={data.basisClose}
                   dates={data.dates}
                   lookback={config.lookback}
-                  marketOpen={true}
+                  marketOpen={data.meta?.marketStatus === 'open'}
                   lastUpdated={data.meta?.lastUpdated}
                 />
               </motion.div>
