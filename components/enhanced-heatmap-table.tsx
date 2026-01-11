@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { HeatmapMetrics } from "@/lib/massive-api"
 import { DrilldownSheet } from "./drilldown-sheet"
-import { HeatLegend } from "./heat-legend"
 import { getHeatStyle, type HeatMetric } from "@/lib/heat/colors"
 
 interface EnhancedHeatmapTableProps {
@@ -23,8 +22,9 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
 
   let symbols = Object.keys(data)
 
-  // Apply sorting
-  if (sortBy && symbols.length > 0) {
+  // Apply sorting based on current metric type
+  const isHighMetric = metric.includes("High")
+  if (sortBy && sortBy !== "none" && symbols.length > 0) {
     const latestIndex = dates.length - 1
     symbols = [...symbols].sort((a, b) => {
       const aMetric = data[a]?.[latestIndex]
@@ -32,12 +32,21 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
 
       if (!aMetric || !bMetric) return 0
 
-      if (sortBy === "closestToHigh") {
-        return aMetric.pctFromHigh - bMetric.pctFromHigh
+      if (sortBy === "closestToExtreme") {
+        // Sort by % from extreme (closest first)
+        const aVal = isHighMetric ? aMetric.pctFromHigh : aMetric.pctFromLow
+        const bVal = isHighMetric ? bMetric.pctFromHigh : bMetric.pctFromLow
+        return aVal - bVal
       } else if (sortBy === "mostDays") {
-        return bMetric.daysSinceHigh - aMetric.daysSinceHigh
+        // Sort by days since extreme (most days first)
+        const aVal = isHighMetric ? aMetric.daysSinceHigh : aMetric.daysSinceLow
+        const bVal = isHighMetric ? bMetric.daysSinceHigh : bMetric.daysSinceLow
+        return bVal - aVal
       } else if (sortBy === "freshBreakouts") {
-        return aMetric.daysSinceHigh - bMetric.daysSinceHigh
+        // Sort by days since extreme (fewest days first - fresh breakouts)
+        const aVal = isHighMetric ? aMetric.daysSinceHigh : aMetric.daysSinceLow
+        const bVal = isHighMetric ? bMetric.daysSinceHigh : bMetric.daysSinceLow
+        return aVal - bVal
       }
       return 0
     })
@@ -62,9 +71,6 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
     return getHeatStyle({ metric: metric as HeatMetric, value, lookback })
   }
 
-  // Determine legend type based on current metric
-  const legendType = metric.includes("High") ? "high" : "low"
-
   const handleCellClick = (symbol: string, dateIndex: number) => {
     setDrilldownSymbol(symbol)
     setDrilldownDateIndex(dateIndex)
@@ -73,7 +79,7 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
   return (
     <>
       <TooltipProvider>
-        <div className="relative w-full overflow-auto rounded border border-border">
+        <div className="relative w-full overflow-auto">
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10">
               <tr>
@@ -170,7 +176,6 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
               ))}
             </tbody>
           </table>
-          <HeatLegend metricType={legendType} />
         </div>
       </TooltipProvider>
 

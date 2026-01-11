@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
@@ -34,8 +35,39 @@ interface EnhancedControlsProps {
 }
 
 const CORE_INDICES = "DJI,SPX,IXIC,NDX,RUT,SOX"
+const DEBOUNCE_MS = 800
 
 export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdated, disabled }: EnhancedControlsProps) {
+  // Local state for symbols input with debouncing
+  const [localSymbols, setLocalSymbols] = useState(config.symbols)
+
+  // Sync local state when config.symbols changes externally (e.g., switching to core)
+  useEffect(() => {
+    setLocalSymbols(config.symbols)
+  }, [config.symbols])
+
+  // Debounced update to parent
+  useEffect(() => {
+    // Don't debounce if we're in core mode or if symbols match
+    if (config.universe === "core" || localSymbols === config.symbols) {
+      return
+    }
+
+    const timer = setTimeout(() => {
+      onConfigChange({ ...config, symbols: localSymbols })
+    }, DEBOUNCE_MS)
+
+    return () => clearTimeout(timer)
+  }, [localSymbols, config, onConfigChange])
+
+  // Handle Enter key to apply immediately
+  const handleSymbolsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      onConfigChange({ ...config, symbols: localSymbols })
+    }
+  }
+
   const metricLabels = {
     pctFromHigh: "% From High",
     daysSinceHigh: "Days Since High",
@@ -138,9 +170,10 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
             </Label>
             <Input
               id="symbols"
-              value={config.symbols}
-              onChange={(e) => onConfigChange({ ...config, symbols: e.target.value })}
-              placeholder="DJI,SPX,IXIC"
+              value={localSymbols}
+              onChange={(e) => setLocalSymbols(e.target.value.toUpperCase())}
+              onKeyDown={handleSymbolsKeyDown}
+              placeholder="AAPL,MSFT,GOOGL"
               disabled={disabled}
               className="h-8 text-sm font-mono"
             />
@@ -239,9 +272,9 @@ export function EnhancedControls({ config, onConfigChange, onRefresh, lastUpdate
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Default Order</SelectItem>
-              <SelectItem value="closestToHigh">Closest to High</SelectItem>
-              <SelectItem value="mostDays">Most Days Since High</SelectItem>
-              <SelectItem value="freshBreakouts">Fresh Breakouts (0d)</SelectItem>
+              <SelectItem value="closestToExtreme">Closest to Extreme</SelectItem>
+              <SelectItem value="mostDays">Most Days Away</SelectItem>
+              <SelectItem value="freshBreakouts">Fresh Breakouts</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -37,27 +37,25 @@ export function HeatLegend({ metricType, compact = false }: HeatLegendProps) {
   if (compact) {
     // Compact single-line legend
     const items = metricType === 'low' ? lowLegend : highLegend
-    const label = metricType === 'low' ? 'Near Low' : 'Near High'
+    const label = metricType === 'low' ? 'Near Lows' : 'Near Highs'
 
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 border-t border-border bg-muted/30">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[10px] text-muted-foreground">
           {label}:
         </span>
-        {items.map((item, idx) => (
-          <div key={item.label} className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
+          <span className="text-[9px] text-muted-foreground mr-0.5">Hot</span>
+          {items.map((item) => (
             <div
-              className="w-2.5 h-2.5 rounded-sm"
+              key={item.label}
+              className="w-3 h-3 rounded-sm border border-border/20"
               style={{ backgroundColor: item.bg }}
+              title={item.label}
             />
-            {idx === 0 && (
-              <span className="text-[9px] text-muted-foreground">Hot</span>
-            )}
-            {idx === items.length - 1 && (
-              <span className="text-[9px] text-muted-foreground">Cold</span>
-            )}
-          </div>
-        ))}
+          ))}
+          <span className="text-[9px] text-muted-foreground ml-0.5">Cold</span>
+        </div>
       </div>
     )
   }

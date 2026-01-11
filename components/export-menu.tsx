@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Download, FileJson, FileSpreadsheet } from "lucide-react"
-import type { EnhancedDashboardConfig } from "@/components/enhanced-controls"
+import type { DashboardConfig } from "@/components/dashboard-controls"
 import type { HeatmapMetrics } from "@/lib/massive-api"
 
 interface ExportMenuProps {
@@ -12,7 +12,7 @@ interface ExportMenuProps {
     data: Record<string, HeatmapMetrics[]>
     rawBars?: Record<string, any[]>
   } | null
-  config: EnhancedDashboardConfig
+  config: DashboardConfig
 }
 
 // Metric display names for CSV headers

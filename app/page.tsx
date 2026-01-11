@@ -1,41 +1,35 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import useSWR from "swr"
 import { motion, AnimatePresence } from "framer-motion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
-import { AlertCircle, Share2, TrendingUp, Activity, Zap, Loader2 } from "lucide-react"
+import { AlertCircle, Share2, TrendingUp, Activity, Loader2 } from "lucide-react"
 import { ExportMenu } from "@/components/export-menu"
-import { EnhancedControls, type EnhancedDashboardConfig } from "@/components/enhanced-controls"
-import { SummaryTiles } from "@/components/summary-tiles"
+import { DashboardControls, type DashboardConfig } from "@/components/dashboard-controls"
+import { StatsBar } from "@/components/stats-bar"
 import { EnhancedHeatmapTable } from "@/components/enhanced-heatmap-table"
-import { MarketExtremesTable } from "@/components/market-extremes-table"
 import { AICompanion } from "@/components/ai-companion"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { HeatLegend } from "@/components/heat-legend"
 
-// Animation variants for smooth filter transitions
+// Animation variants for smooth transitions
 const fadeSlide = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -8 },
 }
 
-const fadeIn = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-}
-
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function DashboardPage() {
-  const [config, setConfig] = useState<EnhancedDashboardConfig>({
+  const [config, setConfig] = useState<DashboardConfig>({
     universe: "core",
     symbols: "DJI,SPX,IXIC,NDX,RUT,SOX",
     lookback: 63,
-    metric: "pctFromHigh",
+    metric: "daysSinceHigh",
     basis: "close",
     days: 30,
     sortBy: "none",
@@ -54,6 +48,12 @@ export default function DashboardPage() {
   })
 
   const [isSharing, setIsSharing] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Avoid hydration mismatch for timestamps
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleShare = async () => {
     if (!data) return
@@ -80,68 +80,83 @@ export default function DashboardPage() {
     }
   }
 
-  const lastUpdated = data ? new Date() : undefined
+  // Compute date range from data
+  const dataDateRange = data?.dates?.length
+    ? { from: data.dates[0], to: data.dates[data.dates.length - 1] }
+    : undefined
+
+  // Determine legend type based on metric
+  const legendType = config.metric.includes("High") ? "high" : "low"
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Compact Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background">
-        <div className="max-w-[1800px] mx-auto px-4 py-3">
+        <div className="max-w-[1800px] mx-auto px-4 py-2">
           <div className="flex items-center justify-between gap-4">
-            {/* Logo and Branding */}
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center justify-center w-9 h-9 rounded bg-primary">
-                <TrendingUp className="w-5 h-5 text-primary-foreground" />
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-8 h-8 rounded bg-primary">
+                <TrendingUp className="w-4 h-4 text-primary-foreground" />
               </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-foreground truncate">
+              <div>
+                <h1 className="text-base font-semibold tracking-tight text-foreground">
                   Tucson Trader
                 </h1>
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                  <Activity className="w-3 h-3 flex-shrink-0" />
-                  <span className="hidden xs:inline">Market Analysis</span>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Activity className="w-3 h-3" />
                   <span className="text-green-600 dark:text-green-500 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                     Live
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Header Actions */}
+            {/* Actions */}
             <div className="flex items-center gap-2">
-              <div className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-sm bg-muted text-xs text-muted-foreground">
-                <Zap className="w-3 h-3 text-primary" />
-                <span>Updated {new Date().toLocaleTimeString()}</span>
-              </div>
+              <ThemeToggle />
               <ExportMenu data={data} config={config} />
               <Button
                 onClick={handleShare}
                 disabled={isSharing || !data}
                 size="sm"
                 variant="outline"
+                className="h-8"
               >
-                <Share2 className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Share</span>
+                <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline text-xs">Share</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
+      {/* Controls - Always visible at top */}
+      <DashboardControls
+        config={config}
+        onConfigChange={setConfig}
+        onRefresh={() => mutate()}
+        disabled={isValidating}
+        dataDateRange={dataDateRange}
+      />
+
       {/* Main Content */}
-      <main className="max-w-[1800px] mx-auto px-4 py-4 space-y-4">
-        {/* Initial loading - only show skeleton on first load */}
+      <main className="flex-1 max-w-[1800px] w-full mx-auto">
         {isLoading && !data ? (
-          <LoadingSkeleton />
+          <div className="p-4">
+            <LoadingSkeleton />
+          </div>
         ) : error && !data ? (
-          <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error?.message || "Failed to load data"}</AlertDescription>
-          </Alert>
+          <div className="p-4">
+            <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error?.message || "Failed to load data"}</AlertDescription>
+            </Alert>
+          </div>
         ) : data ? (
           <div className="relative">
-            {/* Overlay spinner for subsequent fetches */}
+            {/* Loading overlay */}
             <AnimatePresence>
               {isValidating && (
                 <motion.div
@@ -149,7 +164,7 @@ export default function DashboardPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute inset-0 z-20 flex items-start justify-center pt-20 bg-background/60 backdrop-blur-[1px]"
+                  className="absolute inset-0 z-20 flex items-start justify-center pt-16 bg-background/60 backdrop-blur-[1px]"
                 >
                   <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-card border border-border shadow-sm">
                     <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -159,107 +174,51 @@ export default function DashboardPage() {
               )}
             </AnimatePresence>
 
-            {/* Summary Tiles */}
+            {/* Stats Bar */}
             {data.data && Object.keys(data.data).length > 0 && (
-              <motion.div
-                layout
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                <SummaryTiles data={data.data} lookback={config.lookback} />
-              </motion.div>
+              <div className="border-b border-border bg-muted/30">
+                <StatsBar data={data.data} lookback={config.lookback} />
+              </div>
             )}
 
-            {/* Market Extremes Table - Trading Desk View */}
-            {data.rawBars && Object.keys(data.rawBars).length > 0 && (
-              <motion.div
-                layout
-                transition={{ duration: 0.2, ease: "easeOut" }}
-                className="mt-4"
-              >
-                <Card className="border-border overflow-hidden">
-                  <CardHeader className="py-3 px-4 border-b border-border">
-                    <CardTitle className="text-base font-semibold">
-                      Market Extremes
-                    </CardTitle>
-                    <CardDescription className="text-xs">
-                      Days since {config.lookback}-day rolling high by price basis
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <MarketExtremesTable
+            {/* Heatmap Table */}
+            {data.dates && data.data && (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`${config.metric}-${config.basis}`}
+                  variants={fadeSlide}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="p-4"
+                >
+                  <div className="border border-border rounded-md overflow-hidden">
+                    <EnhancedHeatmapTable
+                      dates={data.dates}
+                      data={data.data}
                       rawBars={data.rawBars}
                       lookback={config.lookback}
+                      metric={config.metric}
+                      sortBy={config.sortBy}
                     />
-                  </CardContent>
-                </Card>
-              </motion.div>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="mt-3 flex items-center justify-between">
+                    <HeatLegend metricType={legendType} compact />
+                    <span className="text-xs text-muted-foreground">
+                      Click any cell for details
+                    </span>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             )}
-
-            {/* Main Heatmap Card */}
-            <motion.div
-              layout
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="mt-4"
-            >
-              <Card className="border-border overflow-hidden">
-                <CardHeader className="pb-0 border-b border-border px-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg sm:text-xl font-semibold">
-                        Heatmap Analysis
-                      </CardTitle>
-                      <CardDescription className="mt-1 text-xs sm:text-sm">
-                        Tracking {config.lookback}-day rolling extremes with {config.basis} basis
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="border-b border-border">
-                    <EnhancedControls
-                      config={config}
-                      onConfigChange={setConfig}
-                      onRefresh={() => mutate()}
-                      lastUpdated={lastUpdated}
-                      disabled={isValidating}
-                    />
-                  </div>
-
-                  {data.dates && data.data && (
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={`${config.metric}-${config.basis}`}
-                        variants={fadeSlide}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="p-3 overflow-x-auto"
-                      >
-                        <EnhancedHeatmapTable
-                          dates={data.dates}
-                          data={data.data}
-                          rawBars={data.rawBars}
-                          lookback={config.lookback}
-                          metric={config.metric}
-                          sortBy={config.sortBy}
-                        />
-                      </motion.div>
-                    </AnimatePresence>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Footer Attribution */}
-            <div className="text-center py-3 text-xs text-muted-foreground">
-              <p>Tucson Trader</p>
-            </div>
           </div>
         ) : null}
       </main>
 
-      {/* AI Companion Chat Widget */}
+      {/* AI Companion */}
       <AICompanion />
     </div>
   )
