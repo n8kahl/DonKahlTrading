@@ -85,7 +85,7 @@ export const SnapshotAllResponseSchema = z.object({
 
 export const OptionsContractSchema = z.object({
   ticker: z.string(),
-  underlying_ticker: z.string(),
+  underlying_ticker: z.string().optional(), // Sometimes missing in Polygon API responses
   contract_type: z.enum(['call', 'put']),
   strike_price: z.number(),
   expiration_date: z.string(),
