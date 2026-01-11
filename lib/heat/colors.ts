@@ -25,47 +25,54 @@ export interface HeatStyle {
 }
 
 // -----------------------------------------------------------------------------
-// Days-First Banded Color Palette (Primitive Style)
+// Standard Intuitive Color Palette
 // -----------------------------------------------------------------------------
-// For HIGH metrics: Red/Orange for "at high" (event), fading to neutral
-// For LOW metrics: Purple/Rose for "at low" (event), fading to neutral
+// GREEN = Good/Bullish, RED = Bad/Bearish (standard financial convention)
+//
+// For HIGH metrics (days since high):
+//   0 days = GREEN (at new highs = strong/bullish)
+//   More days = fades toward RED (far from highs = weak)
+//
+// For LOW metrics (days since low):
+//   0 days = RED (at new lows = weak/bearish)
+//   More days = fades toward GREEN (far from lows = strong)
 
-// HIGH colors - Red/Orange style (like the primitive screenshot)
+// HIGH colors - Green to Red (0 = green/good, high = red/bad)
 const HIGH_BANDS = {
-  hottest: { bg: 'oklch(0.58 0.20 25)', fg: '#ffffff' },   // Bright red - 0 days
-  hot:     { bg: 'oklch(0.52 0.16 30)', fg: '#ffffff' },   // Red-orange - 1-3 days
-  warm:    { bg: 'oklch(0.45 0.12 35)', fg: '#ffffff' },   // Orange - 4-10 days
-  cool:    { bg: 'oklch(0.38 0.07 40)', fg: '#e0e0e0' },   // Muted orange - 11-21 days
-  cold:    { bg: 'oklch(0.28 0.03 45)', fg: '#a0a0a0' },   // Near neutral - >21 days
+  hottest: { bg: '#22c55e', fg: '#ffffff' },  // Green-500 - 0 days (at highs = bullish)
+  hot:     { bg: '#4ade80', fg: '#000000' },  // Green-400 - 1-3 days
+  warm:    { bg: '#fbbf24', fg: '#000000' },  // Amber-400 - 4-10 days (cooling)
+  cool:    { bg: '#f97316', fg: '#ffffff' },  // Orange-500 - 11-21 days (warning)
+  cold:    { bg: '#ef4444', fg: '#ffffff' },  // Red-500 - >21 days (far from highs)
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
-// LOW colors - Purple/Rose style
+// LOW colors - Red to Green (0 = red/bad, high = green/good)
 const LOW_BANDS = {
-  hottest: { bg: 'oklch(0.52 0.20 320)', fg: '#ffffff' },  // Bright purple - 0 days
-  hot:     { bg: 'oklch(0.46 0.16 315)', fg: '#ffffff' },  // Purple - 1-3 days
-  warm:    { bg: 'oklch(0.40 0.12 310)', fg: '#ffffff' },  // Rose-purple - 4-10 days
-  cool:    { bg: 'oklch(0.34 0.07 305)', fg: '#e0e0e0' },  // Muted purple - 11-21 days
-  cold:    { bg: 'oklch(0.26 0.03 300)', fg: '#a0a0a0' },  // Near neutral - >21 days
+  hottest: { bg: '#ef4444', fg: '#ffffff' },  // Red-500 - 0 days (at lows = bearish)
+  hot:     { bg: '#f97316', fg: '#ffffff' },  // Orange-500 - 1-3 days
+  warm:    { bg: '#fbbf24', fg: '#000000' },  // Amber-400 - 4-10 days
+  cool:    { bg: '#4ade80', fg: '#000000' },  // Green-400 - 11-21 days (recovering)
+  cold:    { bg: '#22c55e', fg: '#ffffff' },  // Green-500 - >21 days (far from lows = strong)
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
-// Legacy teal/rose colors for percentage view
+// Percentage colors follow same logic
 const PCT_HIGH_COLORS = {
-  hottest: { bg: 'oklch(0.55 0.15 160)', fg: '#ffffff' },  // Bright teal
-  hot:     { bg: 'oklch(0.48 0.12 165)', fg: '#ffffff' },
-  warm:    { bg: 'oklch(0.40 0.09 170)', fg: '#ffffff' },
-  cool:    { bg: 'oklch(0.32 0.06 170)', fg: '#e0e0e0' },
-  cold:    { bg: 'oklch(0.24 0.03 170)', fg: '#a0a0a0' },
+  hottest: { bg: '#22c55e', fg: '#ffffff' },  // 0% from high = green
+  hot:     { bg: '#4ade80', fg: '#000000' },
+  warm:    { bg: '#fbbf24', fg: '#000000' },
+  cool:    { bg: '#f97316', fg: '#ffffff' },
+  cold:    { bg: '#ef4444', fg: '#ffffff' },  // Far from high = red
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
 const PCT_LOW_COLORS = {
-  hottest: { bg: 'oklch(0.50 0.18 25)', fg: '#ffffff' },
-  hot:     { bg: 'oklch(0.44 0.14 25)', fg: '#ffffff' },
-  warm:    { bg: 'oklch(0.38 0.10 25)', fg: '#ffffff' },
-  cool:    { bg: 'oklch(0.32 0.06 25)', fg: '#e0e0e0' },
-  cold:    { bg: 'oklch(0.26 0.03 25)', fg: '#a0a0a0' },
+  hottest: { bg: '#ef4444', fg: '#ffffff' },  // 0% from low = red (at lows)
+  hot:     { bg: '#f97316', fg: '#ffffff' },
+  warm:    { bg: '#fbbf24', fg: '#000000' },
+  cool:    { bg: '#4ade80', fg: '#000000' },
+  cold:    { bg: '#22c55e', fg: '#ffffff' },  // Far from low = green
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
@@ -184,53 +191,31 @@ export function detectSignal(
 
 /**
  * Get Tailwind classes for heatmap styling.
+ * Uses standard Green=Good, Red=Bad financial convention.
  */
 export function getHeatClasses({ metric, value, lookback }: HeatStyleInput): string {
   const style = getHeatStyle({ metric, value, lookback })
   const isHighMetric = metric.includes('High')
 
-  // Map bands to Tailwind classes
-  if (metric.includes('days')) {
-    // Days metrics - use red/orange for HIGH, purple for LOW
-    if (isHighMetric) {
-      switch (style.band) {
-        case 'hottest': return 'bg-red-500 text-white font-bold'
-        case 'hot': return 'bg-orange-500 text-white font-semibold'
-        case 'warm': return 'bg-orange-600/70 text-white font-medium'
-        case 'cool': return 'bg-orange-800/40 text-orange-200/90'
-        case 'cold': return 'bg-orange-900/20 text-orange-300/60'
-        default: return 'text-muted-foreground/50'
-      }
-    } else {
-      switch (style.band) {
-        case 'hottest': return 'bg-purple-500 text-white font-bold'
-        case 'hot': return 'bg-purple-600 text-white font-semibold'
-        case 'warm': return 'bg-purple-700/70 text-white font-medium'
-        case 'cool': return 'bg-purple-800/40 text-purple-200/90'
-        case 'cold': return 'bg-purple-900/20 text-purple-300/60'
-        default: return 'text-muted-foreground/50'
-      }
+  // For HIGH metrics: Green (at highs) -> Red (far from highs)
+  // For LOW metrics: Red (at lows) -> Green (far from lows)
+  if (isHighMetric) {
+    switch (style.band) {
+      case 'hottest': return 'bg-green-500 text-white font-bold'      // At highs = green
+      case 'hot': return 'bg-green-400 text-black font-semibold'
+      case 'warm': return 'bg-amber-400 text-black font-medium'       // Cooling = amber
+      case 'cool': return 'bg-orange-500 text-white'                  // Warning = orange
+      case 'cold': return 'bg-red-500 text-white'                     // Far from highs = red
+      default: return 'text-muted-foreground/50'
     }
   } else {
-    // Percentage metrics - use teal for HIGH, rose for LOW
-    if (isHighMetric) {
-      switch (style.band) {
-        case 'hottest': return 'bg-teal-500 text-white font-bold'
-        case 'hot': return 'bg-teal-600 text-white font-semibold'
-        case 'warm': return 'bg-teal-700/70 text-white font-medium'
-        case 'cool': return 'bg-teal-800/40 text-teal-200/90'
-        case 'cold': return 'bg-teal-900/20 text-teal-300/60'
-        default: return 'text-muted-foreground/50'
-      }
-    } else {
-      switch (style.band) {
-        case 'hottest': return 'bg-rose-500 text-white font-bold'
-        case 'hot': return 'bg-rose-600 text-white font-semibold'
-        case 'warm': return 'bg-rose-700/70 text-white font-medium'
-        case 'cool': return 'bg-rose-800/40 text-rose-200/90'
-        case 'cold': return 'bg-rose-900/20 text-rose-300/60'
-        default: return 'text-muted-foreground/50'
-      }
+    switch (style.band) {
+      case 'hottest': return 'bg-red-500 text-white font-bold'        // At lows = red
+      case 'hot': return 'bg-orange-500 text-white font-semibold'
+      case 'warm': return 'bg-amber-400 text-black font-medium'
+      case 'cool': return 'bg-green-400 text-black'                   // Recovering = green
+      case 'cold': return 'bg-green-500 text-white'                   // Far from lows = green
+      default: return 'text-muted-foreground/50'
     }
   }
 }
