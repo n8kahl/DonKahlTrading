@@ -12,6 +12,8 @@ import {
   Trash2,
   Minimize2,
   Maximize2,
+  Share2,
+  Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAI, type Message, type ToolResult } from '@/components/ai-provider'
@@ -258,8 +260,11 @@ function ChatContent({
   setInput,
   handleSend,
   handleClear,
+  handleShare,
+  handleExport,
   handlePin,
   scrollRef,
+  isSharing,
 }: {
   messages: ChatMessage[]
   isLoading: boolean
@@ -267,8 +272,11 @@ function ChatContent({
   setInput: (v: string) => void
   handleSend: () => void
   handleClear: () => void
+  handleShare: () => void
+  handleExport: () => void
   handlePin: (config: PinConfig) => void
   scrollRef: React.RefObject<HTMLDivElement | null>
+  isSharing?: boolean
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -286,15 +294,38 @@ function ChatContent({
             <p className="text-[11px] text-white/50 font-mono">AI-powered analysis</p>
           </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleClear}
-          className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
-          disabled={messages.length === 0}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleExport}
+            className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+            disabled={messages.length === 0}
+            title="Export as JSON"
+          >
+            <Download className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleShare}
+            className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+            disabled={messages.length === 0 || isSharing}
+            title="Share chat link"
+          >
+            {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClear}
+            className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+            disabled={messages.length === 0}
+            title="Clear chat"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -474,6 +505,7 @@ export function AICompanion() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [input, setInput] = useState('')
+  const [isSharing, setIsSharing] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Convert AI messages to chat format
@@ -503,16 +535,85 @@ export function AICompanion() {
     clearMessages()
   }, [clearMessages])
 
-  const handlePin = useCallback((config: PinConfig) => {
-    // TODO: Implement pin to dashboard
-    // This will be connected to the main dashboard state
-    console.log('Pin requested:', config)
+  const handlePin = useCallback(async (config: PinConfig) => {
+    try {
+      // Try to save to API first
+      const response = await fetch('/api/pinned-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      })
 
-    // For now, store in localStorage as a placeholder
-    const pinnedCards = JSON.parse(localStorage.getItem('pinnedCards') || '[]')
-    pinnedCards.push(config)
-    localStorage.setItem('pinnedCards', JSON.stringify(pinnedCards))
+      if (response.ok) {
+        // Show success feedback (could be a toast)
+        console.log('Card pinned to dashboard:', config.title)
+      } else {
+        // Fallback to localStorage
+        const pinnedCards = JSON.parse(localStorage.getItem('pinnedCards') || '[]')
+        pinnedCards.push(config)
+        localStorage.setItem('pinnedCards', JSON.stringify(pinnedCards))
+        console.log('Card pinned locally:', config.title)
+      }
+    } catch {
+      // Fallback to localStorage on network error
+      const pinnedCards = JSON.parse(localStorage.getItem('pinnedCards') || '[]')
+      pinnedCards.push(config)
+      localStorage.setItem('pinnedCards', JSON.stringify(pinnedCards))
+    }
   }, [])
+
+  const handleShare = useCallback(async () => {
+    if (messages.length === 0) return
+
+    setIsSharing(true)
+    try {
+      const response = await fetch('/api/chat-share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create share link')
+      }
+
+      const { id } = await response.json()
+      const shareUrl = `${window.location.origin}/chat/${id}`
+
+      await navigator.clipboard.writeText(shareUrl)
+      alert(`Share link copied to clipboard:\n${shareUrl}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create share link'
+      alert(message)
+    } finally {
+      setIsSharing(false)
+    }
+  }, [messages])
+
+  const handleExport = useCallback(() => {
+    if (messages.length === 0) return
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      messages: messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp.toISOString(),
+        toolResults: m.toolResults,
+      })),
+    }
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tucson-trader-chat-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [messages])
 
   const toggleOpen = useCallback(() => {
     setIsOpen((prev) => !prev)
@@ -527,8 +628,11 @@ export function AICompanion() {
       setInput={setInput}
       handleSend={handleSend}
       handleClear={handleClear}
+      handleShare={handleShare}
+      handleExport={handleExport}
       handlePin={handlePin}
       scrollRef={scrollRef}
+      isSharing={isSharing}
     />
   )
 

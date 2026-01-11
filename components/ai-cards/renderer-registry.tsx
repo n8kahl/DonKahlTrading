@@ -7,6 +7,7 @@ import { OptionsChainTable } from './options-chain-table'
 import { MarketPulseHUD } from './market-pulse-hud'
 import { HeatmapCard } from './heatmap-card'
 import { BreadthPanel } from './breadth-panel'
+import { ErrorCard } from './error-card'
 
 // =============================================================================
 // Renderer Registry
@@ -48,6 +49,12 @@ const renderers: Record<string, RendererFn> = {
     <BreadthPanel
       data={data as ResultEnvelope & { type: 'breadth' }}
       onPin={onPin}
+    />
+  ),
+
+  error: (data) => (
+    <ErrorCard
+      data={data as ResultEnvelope & { type: 'error' }}
     />
   ),
 

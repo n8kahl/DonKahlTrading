@@ -22,6 +22,7 @@ export type ResultType =
   | 'heatmap'
   | 'breadth'
   | 'pulse'
+  | 'error'
 
 export interface MarketDashboardData {
   type: 'market_dashboard'
@@ -114,6 +115,13 @@ export interface MarketPulseData {
   lastUpdated: string
 }
 
+export interface ErrorData {
+  type: 'error'
+  title: string
+  message: string
+  recoverable?: boolean
+}
+
 export type ResultEnvelope =
   | MarketDashboardData
   | OptionsChainData
@@ -121,3 +129,4 @@ export type ResultEnvelope =
   | HeatmapData
   | BreadthData
   | MarketPulseData
+  | ErrorData
