@@ -443,7 +443,8 @@ export function EnhancedHeatmapTable({
           </tr>
         </thead>
         <tbody>
-          {dates.map((date, dateIndex) => {
+          {[...dates].reverse().map((date, reversedIndex) => {
+            const dateIndex = dates.length - 1 - reversedIndex // Original index for data access
             const isRecent = dateIndex >= dates.length - 10
             return (
               <tr key={date} className="hover:bg-muted/50 transition-colors">
@@ -493,38 +494,41 @@ export function EnhancedHeatmapTable({
           </tr>
         </thead>
         <tbody>
-          {dates.map((date, dateIndex) => (
-            <tr key={date} className="hover:bg-muted/50 transition-colors">
-              <td className="sticky left-0 z-10 bg-card border-b border-r border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                {date}
-              </td>
-              {symbols.map((symbol) => {
-                const highMetrics = highData[symbol]?.[dateIndex]
-                const closeMetrics = closeData[symbol]?.[dateIndex]
+          {[...dates].reverse().map((date, reversedIndex) => {
+            const dateIndex = dates.length - 1 - reversedIndex // Original index for data access
+            return (
+              <tr key={date} className="hover:bg-muted/50 transition-colors">
+                <td className="sticky left-0 z-10 bg-card border-b border-r border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                  {date}
+                </td>
+                {symbols.map((symbol) => {
+                  const highMetrics = highData[symbol]?.[dateIndex]
+                  const closeMetrics = closeData[symbol]?.[dateIndex]
 
-                if (!highMetrics || !closeMetrics) {
+                  if (!highMetrics || !closeMetrics) {
+                    return (
+                      <td key={symbol} className="border-b border-border px-3 py-2 text-center text-muted-foreground/50">
+                        —
+                      </td>
+                    )
+                  }
+
+                  const deltaValue = closeMetrics.daysSinceHigh - highMetrics.daysSinceHigh
+
                   return (
-                    <td key={symbol} className="border-b border-border px-3 py-2 text-center text-muted-foreground/50">
-                      —
-                    </td>
+                    <HeatCell
+                      key={symbol}
+                      metric={metric}
+                      lookback={lookback}
+                      isDelta
+                      deltaValue={deltaValue}
+                      onClick={() => handleCellClick(symbol, dateIndex, closeData)}
+                    />
                   )
-                }
-
-                const deltaValue = closeMetrics.daysSinceHigh - highMetrics.daysSinceHigh
-
-                return (
-                  <HeatCell
-                    key={symbol}
-                    metric={metric}
-                    lookback={lookback}
-                    isDelta
-                    deltaValue={deltaValue}
-                    onClick={() => handleCellClick(symbol, dateIndex, closeData)}
-                  />
-                )
-              })}
-            </tr>
-          ))}
+                })}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

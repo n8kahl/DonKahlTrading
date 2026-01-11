@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sparkles,
   Send,
   X,
   Bot,
@@ -257,6 +256,7 @@ function CommandBarInput({
 function ChatContent({
   messages,
   isLoading,
+  error,
   input,
   setInput,
   handleSend,
@@ -269,6 +269,7 @@ function ChatContent({
 }: {
   messages: ChatMessage[]
   isLoading: boolean
+  error: string | null
   input: string
   setInput: (v: string) => void
   handleSend: () => void
@@ -285,9 +286,13 @@ function ChatContent({
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary via-purple-500 to-pink-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
+            <Image
+              src="/tucson-trader-logo-small.png"
+              alt="Trading Copilot"
+              width={36}
+              height={36}
+              className="rounded-full"
+            />
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-black" />
           </div>
           <div>
@@ -334,8 +339,14 @@ function ChatContent({
         <div ref={scrollRef} className="py-4 space-y-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-                <Sparkles className="w-8 h-8 text-white/30" />
+              <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4 overflow-hidden">
+                <Image
+                  src="/tucson-trader-logo-small.png"
+                  alt="Trading Copilot"
+                  width={64}
+                  height={64}
+                  className="opacity-50"
+                />
               </div>
               <h4 className="text-white/70 font-medium mb-2">Start a conversation</h4>
               <p className="text-white/40 text-sm max-w-[250px]">
@@ -361,6 +372,16 @@ function ChatContent({
                 <MessageBubble key={msg.id} message={msg} onPin={handlePin} />
               ))}
               <AnimatePresence>{isLoading && <TypingIndicator />}</AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-sm"
+                >
+                  <p className="font-medium">Error</p>
+                  <p className="text-xs mt-1 text-red-300/70">{error}</p>
+                </motion.div>
+              )}
             </>
           )}
         </div>
@@ -487,9 +508,13 @@ function DesktopChatPanel({
 
           {isMinimized ? (
             <div className="flex items-center gap-3 px-4 py-4">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary via-purple-500 to-pink-500 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
+              <Image
+                src="/tucson-trader-logo-small.png"
+                alt="Trading Copilot"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
               <span className="text-sm font-medium text-white">Trading Copilot</span>
             </div>
           ) : (
@@ -507,7 +532,7 @@ function DesktopChatPanel({
 
 export function AICompanion() {
   const isMobile = useIsMobile()
-  const { messages: aiMessages, isLoading, sendMessage, clearMessages } = useAI()
+  const { messages: aiMessages, isLoading, error, sendMessage, clearMessages } = useAI()
 
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
@@ -631,6 +656,7 @@ export function AICompanion() {
     <ChatContent
       messages={messages}
       isLoading={isLoading}
+      error={error}
       input={input}
       setInput={setInput}
       handleSend={handleSend}
