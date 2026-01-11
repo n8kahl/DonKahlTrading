@@ -464,8 +464,8 @@ function DesktopChatPanel({
           exit={{ opacity: 0, y: 20, scale: 0.95 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
-            'fixed bottom-24 right-6 w-[450px] rounded-2xl overflow-hidden',
-            'bg-black/40 backdrop-blur-xl',
+            'fixed bottom-24 right-6 w-[450px] z-50 rounded-2xl overflow-hidden',
+            'bg-black/90 backdrop-blur-xl',
             'border border-white/10',
             'shadow-2xl shadow-black/50'
           )}
