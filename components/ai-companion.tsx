@@ -15,6 +15,7 @@ import {
   Share2,
   Download,
 } from 'lucide-react'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { useAI, type Message, type ToolResult } from '@/components/ai-provider'
 import { renderResult } from '@/components/ai-cards/renderer-registry'
@@ -393,7 +394,7 @@ function LauncherButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
       {/* Glow Effect */}
       <div
         className={cn(
-          'absolute inset-0 rounded-full bg-gradient-to-r from-primary via-purple-500 to-pink-500 blur-xl opacity-50 transition-opacity duration-500',
+          'absolute inset-0 rounded-full bg-primary/30 blur-xl opacity-50 transition-opacity duration-500',
           isOpen ? 'opacity-0' : 'animate-pulse'
         )}
       />
@@ -401,9 +402,8 @@ function LauncherButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
       {/* Button */}
       <div
         className={cn(
-          'relative w-14 h-14 rounded-full flex items-center justify-center',
-          'bg-gradient-to-br from-primary via-purple-500 to-pink-500',
-          'border border-white/20 shadow-2xl',
+          'relative w-14 h-14 rounded-full flex items-center justify-center overflow-hidden',
+          'bg-background border-2 border-border shadow-2xl',
           'transition-transform duration-300'
         )}
       >
@@ -415,18 +415,25 @@ function LauncherButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: 90, opacity: 0 }}
               transition={{ duration: 0.2 }}
+              className="flex items-center justify-center"
             >
-              <X className="w-6 h-6 text-white" />
+              <X className="w-6 h-6 text-foreground" />
             </motion.div>
           ) : (
             <motion.div
               key="open"
-              initial={{ rotate: 90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: -90, opacity: 0 }}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <Sparkles className="w-6 h-6 text-white" />
+              <Image
+                src="/tucson-trader-logo-small.png"
+                alt="Chat"
+                width={48}
+                height={48}
+                className="rounded-full"
+              />
             </motion.div>
           )}
         </AnimatePresence>
