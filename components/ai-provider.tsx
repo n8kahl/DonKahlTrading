@@ -56,6 +56,9 @@ export function AIProvider({ children }: { children: ReactNode }) {
     setMessages((prev) => [...prev, userMessage])
 
     try {
+      console.log('[AI Provider] Sending message:', content)
+      console.log('[AI Provider] Total messages:', messages.length + 1)
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -65,6 +68,8 @@ export function AIProvider({ children }: { children: ReactNode }) {
           messages: [...messages, { role: 'user', content }],
         }),
       })
+
+      console.log('[AI Provider] Response status:', response.status)
 
       if (!response.ok) {
         // Try to get the actual error message from the response body
@@ -84,103 +89,55 @@ export function AIProvider({ children }: { children: ReactNode }) {
         throw new Error('No response body')
       }
 
-      // Handle streaming response with tool results
+      // Handle streaming text response
+      console.log('[AI Provider] Starting stream read...')
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let assistantContent = ''
-      const toolResults: ToolResult[] = []
-      const pendingToolCalls: Map<string, string> = new Map() // toolCallId -> toolName
+      let chunkCount = 0
 
       const assistantMessage: Message = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
         content: '',
-        toolResults: [],
       }
       setMessages((prev) => [...prev, assistantMessage])
 
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-
-          // Text content: 0:"text"
-          if (line.startsWith('0:')) {
-            try {
-              const text = JSON.parse(line.slice(2))
-              assistantContent += text
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === assistantMessage.id
-                    ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
-                    : msg
-                )
-              )
-            } catch {
-              // Ignore parse errors
-            }
-          }
-
-          // Tool call start: 9:{...}
-          if (line.startsWith('9:')) {
-            try {
-              const toolCall = JSON.parse(line.slice(2))
-              if (toolCall.toolCallId && toolCall.toolName) {
-                pendingToolCalls.set(toolCall.toolCallId, toolCall.toolName)
-              }
-            } catch {
-              // Ignore parse errors
-            }
-          }
-
-          // Tool result: a:{...}
-          if (line.startsWith('a:')) {
-            try {
-              const resultData = JSON.parse(line.slice(2))
-              // resultData format: [{toolCallId, result}]
-              if (Array.isArray(resultData)) {
-                for (const item of resultData) {
-                  if (item.toolCallId && item.result) {
-                    const toolName = pendingToolCalls.get(item.toolCallId) || 'unknown'
-                    toolResults.push({
-                      toolCallId: item.toolCallId,
-                      toolName,
-                      result: item.result as ResultEnvelope,
-                    })
-                  }
-                }
-              }
-              // Update message with tool results
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === assistantMessage.id
-                    ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
-                    : msg
-                )
-              )
-            } catch {
-              // Ignore parse errors
-            }
-          }
+        if (done) {
+          console.log('[AI Provider] Stream complete. Total chunks:', chunkCount)
+          break
         }
+
+        chunkCount++
+        const chunk = decoder.decode(value, { stream: true })
+        console.log('[AI Provider] Chunk', chunkCount, ':', chunk.substring(0, 50))
+
+        // Plain text stream - just accumulate the text
+        assistantContent += chunk
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessage.id
+              ? { ...msg, content: assistantContent }
+              : msg
+          )
+        )
       }
 
       // Final update
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessage.id
-            ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
+            ? { ...msg, content: assistantContent }
             : msg
         )
       )
     } catch (err) {
+      console.error('[AI Provider] Error:', err)
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {
+      console.log('[AI Provider] Request complete')
       setIsLoading(false)
     }
   }, [messages])
