@@ -265,6 +265,7 @@ const HeatCell = memo(function HeatCell({
         borderColor: signalStyle?.borderColor,
         borderWidth: signalStyle?.borderWidth,
         borderStyle: signalStyle?.borderStyle as any,
+        boxShadow: signalStyle?.boxShadow,
       }}
       className={cn(
         "border-b border-border/50 px-3 py-2 text-center font-mono text-xs tabular-nums",
@@ -277,7 +278,7 @@ const HeatCell = memo(function HeatCell({
       {getDisplayValue()}
       {/* Corner dot for confirmed breakouts */}
       {signalStyle?.cornerDot && (
-        <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-green-400" />
+        <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-black" />
       )}
     </td>
   )

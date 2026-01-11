@@ -37,42 +37,43 @@ export interface HeatStyle {
 //   0 days = RED (at new lows = weak/bearish)
 //   More days = fades toward GREEN (far from lows = strong)
 
-// HIGH colors - Green to Red (0 = green/good, high = red/bad)
+// HIGH colors - Muted Green to Red (0 = green/good, high = red/bad)
+// Using desaturated, professional colors that don't overwhelm
 const HIGH_BANDS = {
-  hottest: { bg: '#22c55e', fg: '#ffffff' },  // Green-500 - 0 days (at highs = bullish)
-  hot:     { bg: '#4ade80', fg: '#000000' },  // Green-400 - 1-3 days
-  warm:    { bg: '#fbbf24', fg: '#000000' },  // Amber-400 - 4-10 days (cooling)
-  cool:    { bg: '#f97316', fg: '#ffffff' },  // Orange-500 - 11-21 days (warning)
-  cold:    { bg: '#ef4444', fg: '#ffffff' },  // Red-500 - >21 days (far from highs)
+  hottest: { bg: '#059669', fg: '#ffffff' },  // Emerald-600 muted - 0 days
+  hot:     { bg: '#34d399', fg: '#064e3b' },  // Emerald-400 - 1-3 days
+  warm:    { bg: '#fcd34d', fg: '#78350f' },  // Amber-300 muted - 4-10 days
+  cool:    { bg: '#fb923c', fg: '#7c2d12' },  // Orange-400 - 11-21 days
+  cold:    { bg: '#dc2626', fg: '#ffffff' },  // Red-600 - >21 days
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
-// LOW colors - Red to Green (0 = red/bad, high = green/good)
+// LOW colors - Muted Red to Green (0 = red/bad, high = green/good)
 const LOW_BANDS = {
-  hottest: { bg: '#ef4444', fg: '#ffffff' },  // Red-500 - 0 days (at lows = bearish)
-  hot:     { bg: '#f97316', fg: '#ffffff' },  // Orange-500 - 1-3 days
-  warm:    { bg: '#fbbf24', fg: '#000000' },  // Amber-400 - 4-10 days
-  cool:    { bg: '#4ade80', fg: '#000000' },  // Green-400 - 11-21 days (recovering)
-  cold:    { bg: '#22c55e', fg: '#ffffff' },  // Green-500 - >21 days (far from lows = strong)
+  hottest: { bg: '#dc2626', fg: '#ffffff' },  // Red-600 - 0 days (at lows)
+  hot:     { bg: '#fb923c', fg: '#7c2d12' },  // Orange-400 - 1-3 days
+  warm:    { bg: '#fcd34d', fg: '#78350f' },  // Amber-300 - 4-10 days
+  cool:    { bg: '#34d399', fg: '#064e3b' },  // Emerald-400 - 11-21 days
+  cold:    { bg: '#059669', fg: '#ffffff' },  // Emerald-600 - >21 days
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
 // Percentage colors follow same logic
 const PCT_HIGH_COLORS = {
-  hottest: { bg: '#22c55e', fg: '#ffffff' },  // 0% from high = green
-  hot:     { bg: '#4ade80', fg: '#000000' },
-  warm:    { bg: '#fbbf24', fg: '#000000' },
-  cool:    { bg: '#f97316', fg: '#ffffff' },
-  cold:    { bg: '#ef4444', fg: '#ffffff' },  // Far from high = red
+  hottest: { bg: '#059669', fg: '#ffffff' },
+  hot:     { bg: '#34d399', fg: '#064e3b' },
+  warm:    { bg: '#fcd34d', fg: '#78350f' },
+  cool:    { bg: '#fb923c', fg: '#7c2d12' },
+  cold:    { bg: '#dc2626', fg: '#ffffff' },
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
 const PCT_LOW_COLORS = {
-  hottest: { bg: '#ef4444', fg: '#ffffff' },  // 0% from low = red (at lows)
-  hot:     { bg: '#f97316', fg: '#ffffff' },
-  warm:    { bg: '#fbbf24', fg: '#000000' },
-  cool:    { bg: '#4ade80', fg: '#000000' },
-  cold:    { bg: '#22c55e', fg: '#ffffff' },  // Far from low = green
+  hottest: { bg: '#dc2626', fg: '#ffffff' },
+  hot:     { bg: '#fb923c', fg: '#7c2d12' },
+  warm:    { bg: '#fcd34d', fg: '#78350f' },
+  cool:    { bg: '#34d399', fg: '#064e3b' },
+  cold:    { bg: '#059669', fg: '#ffffff' },
   none:    { bg: 'transparent', fg: 'var(--muted-foreground)' },
 }
 
@@ -263,6 +264,7 @@ export interface SignalBorderStyle {
   borderColor: string
   borderWidth: string
   borderStyle: string
+  boxShadow?: string
   cornerDot?: boolean
 }
 
@@ -270,22 +272,25 @@ export function getSignalBorderStyle(signal: SignalInfo['type']): SignalBorderSt
   switch (signal) {
     case 'confirmed':
       return {
-        borderColor: 'oklch(0.65 0.20 145)', // Bright green
-        borderWidth: '2px',
+        borderColor: '#000000',  // Black border for contrast
+        borderWidth: '3px',
         borderStyle: 'solid',
+        boxShadow: '0 0 0 2px #10b981, inset 0 0 8px rgba(16, 185, 129, 0.3)',  // Green glow
         cornerDot: true,
       }
     case 'rejected':
       return {
-        borderColor: 'oklch(0.70 0.18 65)', // Amber/orange
-        borderWidth: '2px',
+        borderColor: '#000000',  // Black border for contrast
+        borderWidth: '3px',
         borderStyle: 'solid',
+        boxShadow: '0 0 0 2px #f59e0b, inset 0 0 8px rgba(245, 158, 11, 0.3)',  // Amber glow
       }
     case 'divergence':
       return {
-        borderColor: 'oklch(0.60 0.15 280)', // Purple
+        borderColor: '#8b5cf6',  // Purple
         borderWidth: '2px',
         borderStyle: 'dashed',
+        boxShadow: '0 0 0 1px #8b5cf6',
       }
     default:
       return null
