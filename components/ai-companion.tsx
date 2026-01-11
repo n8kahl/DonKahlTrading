@@ -336,7 +336,7 @@ function ChatContent({
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-4">
-        <div ref={scrollRef} className="py-4 space-y-4">
+        <div className="py-4 space-y-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4 overflow-hidden">
@@ -382,6 +382,7 @@ function ChatContent({
                   <p className="text-xs mt-1 text-red-300/70">{error}</p>
                 </motion.div>
               )}
+              <div ref={scrollRef} />
             </>
           )}
         </div>

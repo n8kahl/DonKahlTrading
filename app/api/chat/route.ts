@@ -429,7 +429,7 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(5),
     })
 
-    return result.toTextStreamResponse()
+    return result.toUIMessageStreamResponse()
   } catch (error) {
     console.error('[Chat API] Error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

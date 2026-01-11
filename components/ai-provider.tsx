@@ -89,17 +89,21 @@ export function AIProvider({ children }: { children: ReactNode }) {
         throw new Error('No response body')
       }
 
-      // Handle streaming text response
+      // Handle SSE streaming response with tool results
       console.log('[AI Provider] Starting stream read...')
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let assistantContent = ''
+      const toolResults: ToolResult[] = []
+      const pendingToolCalls = new Map<string, string>() // toolCallId -> toolName
       let chunkCount = 0
+      let buffer = '' // Buffer for incomplete lines
 
       const assistantMessage: Message = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
         content: '',
+        toolResults: [],
       }
       setMessages((prev) => [...prev, assistantMessage])
 
@@ -111,25 +115,64 @@ export function AIProvider({ children }: { children: ReactNode }) {
         }
 
         chunkCount++
-        const chunk = decoder.decode(value, { stream: true })
-        console.log('[AI Provider] Chunk', chunkCount, ':', chunk.substring(0, 50))
+        buffer += decoder.decode(value, { stream: true })
 
-        // Plain text stream - just accumulate the text
-        assistantContent += chunk
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id
-              ? { ...msg, content: assistantContent }
-              : msg
-          )
-        )
+        // Process complete lines from buffer
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+
+          try {
+            const data = JSON.parse(line.slice(6))
+
+            // Text delta
+            if (data.type === 'text-delta' && data.delta) {
+              assistantContent += data.delta
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessage.id
+                    ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
+                    : msg
+                )
+              )
+            }
+
+            // Tool call start - capture toolName
+            if (data.type === 'tool-input-start' && data.toolCallId && data.toolName) {
+              console.log('[AI Provider] Tool call:', data.toolName)
+              pendingToolCalls.set(data.toolCallId, data.toolName)
+            }
+
+            // Tool output - capture result
+            if (data.type === 'tool-output-available' && data.toolCallId && data.output) {
+              const toolName = pendingToolCalls.get(data.toolCallId) || 'unknown'
+              console.log('[AI Provider] Tool result:', toolName, data.output?.type)
+              toolResults.push({
+                toolCallId: data.toolCallId,
+                toolName,
+                result: data.output as ResultEnvelope,
+              })
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessage.id
+                    ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
+                    : msg
+                )
+              )
+            }
+          } catch {
+            // Ignore parse errors for malformed lines
+          }
+        }
       }
 
       // Final update
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessage.id
-            ? { ...msg, content: assistantContent }
+            ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
             : msg
         )
       )
