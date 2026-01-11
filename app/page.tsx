@@ -10,6 +10,7 @@ import { AlertCircle, Share2, TrendingUp, Activity, Loader2 } from "lucide-react
 import { ExportMenu } from "@/components/export-menu"
 import { DashboardControls, type DashboardConfig } from "@/components/dashboard-controls"
 import { StatsBar } from "@/components/stats-bar"
+import { MarketExtremesPanel } from "@/components/market-extremes-panel"
 import { EnhancedHeatmapTable } from "@/components/enhanced-heatmap-table"
 import { AICompanion } from "@/components/ai-companion"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -184,6 +185,15 @@ export default function DashboardPage() {
                 <StatsBar data={data.data} lookback={config.lookback} />
               </div>
             )}
+
+            {/* Market Extremes Panel - Shows High vs Close basis comparison */}
+            <div className="p-4 pb-0">
+              <MarketExtremesPanel
+                symbols={config.symbols}
+                lookback={config.lookback}
+                days={20}
+              />
+            </div>
 
             {/* Heatmap Table */}
             {data.dates && data.data && (
