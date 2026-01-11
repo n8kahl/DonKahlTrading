@@ -36,6 +36,12 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 // -----------------------------------------------------------------------------
 // Types
@@ -56,9 +62,11 @@ interface ChatMessage {
 function ToolResultCard({
   result,
   onPin,
+  onExpand,
 }: {
   result: ToolResult
   onPin?: (config: PinConfig) => void
+  onExpand?: (result: ToolResult) => void
 }) {
   const rendered = renderResult(result.result, onPin)
 
@@ -71,7 +79,8 @@ function ToolResultCard({
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="w-full mt-2"
+      className="w-full mt-2 cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-lg transition-all"
+      onClick={() => onExpand?.(result)}
     >
       {rendered}
     </motion.div>
@@ -85,9 +94,11 @@ function ToolResultCard({
 function MessageBubble({
   message,
   onPin,
+  onExpand,
 }: {
   message: ChatMessage
   onPin?: (config: PinConfig) => void
+  onExpand?: (result: ToolResult) => void
 }) {
   const isUser = message.role === 'user'
   const hasToolResults = message.toolResults && message.toolResults.length > 0
@@ -140,7 +151,7 @@ function MessageBubble({
       {hasToolResults && (
         <div className="space-y-3 ml-9">
           {message.toolResults!.map((result) => (
-            <ToolResultCard key={result.toolCallId} result={result} onPin={onPin} />
+            <ToolResultCard key={result.toolCallId} result={result} onPin={onPin} onExpand={onExpand} />
           ))}
         </div>
       )}
@@ -264,6 +275,7 @@ function ChatContent({
   handleShare,
   handleExport,
   handlePin,
+  handleExpand,
   scrollRef,
   isSharing,
 }: {
@@ -277,13 +289,14 @@ function ChatContent({
   handleShare: () => void
   handleExport: () => void
   handlePin: (config: PinConfig) => void
+  handleExpand: (result: ToolResult) => void
   scrollRef: React.RefObject<HTMLDivElement | null>
   isSharing?: boolean
 }) {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="relative">
             <Image
@@ -335,7 +348,7 @@ function ChatContent({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4">
         <div className="py-4 space-y-4">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -369,7 +382,7 @@ function ChatContent({
           ) : (
             <>
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} onPin={handlePin} />
+                <MessageBubble key={msg.id} message={msg} onPin={handlePin} onExpand={handleExpand} />
               ))}
               <AnimatePresence>{isLoading && <TypingIndicator />}</AnimatePresence>
               {error && (
@@ -386,10 +399,10 @@ function ChatContent({
             </>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input - with safe area padding on mobile */}
-      <div className="p-4 border-t border-white/10 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="flex-shrink-0 p-4 border-t border-white/10 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <CommandBarInput
           value={input}
           onChange={setInput}
@@ -539,6 +552,8 @@ export function AICompanion() {
   const [isMinimized, setIsMinimized] = useState(false)
   const [input, setInput] = useState('')
   const [isSharing, setIsSharing] = useState(false)
+  const [expandedResult, setExpandedResult] = useState<ToolResult | null>(null)
+  const [pinFeedback, setPinFeedback] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Convert AI messages to chat format
@@ -568,6 +583,10 @@ export function AICompanion() {
     clearMessages()
   }, [clearMessages])
 
+  const handleExpand = useCallback((result: ToolResult) => {
+    setExpandedResult(result)
+  }, [])
+
   const handlePin = useCallback(async (config: PinConfig) => {
     try {
       // Try to save to API first
@@ -578,20 +597,23 @@ export function AICompanion() {
       })
 
       if (response.ok) {
-        // Show success feedback (could be a toast)
-        console.log('Card pinned to dashboard:', config.title)
+        setPinFeedback(`Pinned: ${config.title}`)
+        setTimeout(() => setPinFeedback(null), 2000)
       } else {
         // Fallback to localStorage
         const pinnedCards = JSON.parse(localStorage.getItem('pinnedCards') || '[]')
         pinnedCards.push(config)
         localStorage.setItem('pinnedCards', JSON.stringify(pinnedCards))
-        console.log('Card pinned locally:', config.title)
+        setPinFeedback(`Saved locally: ${config.title}`)
+        setTimeout(() => setPinFeedback(null), 2000)
       }
     } catch {
       // Fallback to localStorage on network error
       const pinnedCards = JSON.parse(localStorage.getItem('pinnedCards') || '[]')
       pinnedCards.push(config)
       localStorage.setItem('pinnedCards', JSON.stringify(pinnedCards))
+      setPinFeedback(`Saved locally: ${config.title}`)
+      setTimeout(() => setPinFeedback(null), 2000)
     }
   }, [])
 
@@ -654,20 +676,55 @@ export function AICompanion() {
   }, [isMinimized])
 
   const chatContent = (
-    <ChatContent
-      messages={messages}
-      isLoading={isLoading}
-      error={error}
-      input={input}
-      setInput={setInput}
-      handleSend={handleSend}
-      handleClear={handleClear}
-      handleShare={handleShare}
-      handleExport={handleExport}
-      handlePin={handlePin}
-      scrollRef={scrollRef}
-      isSharing={isSharing}
-    />
+    <>
+      <ChatContent
+        messages={messages}
+        isLoading={isLoading}
+        error={error}
+        input={input}
+        setInput={setInput}
+        handleSend={handleSend}
+        handleClear={handleClear}
+        handleShare={handleShare}
+        handleExport={handleExport}
+        handlePin={handlePin}
+        handleExpand={handleExpand}
+        scrollRef={scrollRef}
+        isSharing={isSharing}
+      />
+
+      {/* Pin Feedback Toast */}
+      <AnimatePresence>
+        {pinFeedback && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] px-4 py-2 bg-emerald-500 text-white text-sm rounded-lg shadow-lg"
+          >
+            {pinFeedback}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Expanded Visual Dialog */}
+      <Dialog open={!!expandedResult} onOpenChange={() => setExpandedResult(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto bg-black/95 border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white">
+              {expandedResult?.toolName === 'show_market_pulse' && 'Market Pulse'}
+              {expandedResult?.toolName === 'show_extremes_heatmap' && 'Extremes Heatmap'}
+              {expandedResult?.toolName === 'universal_query' && 'Query Results'}
+              {expandedResult?.toolName === 'get_market_status' && 'Market Status'}
+              {!expandedResult?.toolName?.match(/show_market_pulse|show_extremes_heatmap|universal_query|get_market_status/) && 'Details'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {expandedResult && renderResult(expandedResult.result, handlePin)}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 
   // Mobile: Use Drawer (bottom) for better keyboard handling
