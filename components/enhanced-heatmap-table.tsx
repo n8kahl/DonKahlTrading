@@ -48,12 +48,12 @@ interface EnhancedHeatmapTableProps {
 const VIEW_MODE_KEY = "heatmap-view-mode"
 
 function loadViewMode(): ViewMode {
-  if (typeof window === "undefined") return "single"
+  if (typeof window === "undefined") return "dual"
   const saved = localStorage.getItem(VIEW_MODE_KEY)
   if (saved && ["single", "dual", "delta"].includes(saved)) {
     return saved as ViewMode
   }
-  return "single"
+  return "dual"
 }
 
 function saveViewMode(mode: ViewMode) {
@@ -302,7 +302,7 @@ export function EnhancedHeatmapTable({
   currentBasis = "close",
   sanity,
 }: EnhancedHeatmapTableProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>("single")
+  const [viewMode, setViewMode] = useState<ViewMode>("dual")
   const [mounted, setMounted] = useState(false)
   const [drilldownOpen, setDrilldownOpen] = useState(false)
   const [drilldownData, setDrilldownData] = useState<{
