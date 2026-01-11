@@ -10,6 +10,10 @@ import {
   createOptionsChainPlan,
 } from '@/lib/ai/query-plan'
 import type { ResultEnvelope } from '@/lib/ai/query-plan'
+import { resolveUniverse, listUniverses } from '@/lib/universes'
+import { fetchBulkDailyBars, alignBarsByDate } from '@/lib/breadth/fetch-bulk'
+import { computeBreadthSeries } from '@/lib/breadth/compute'
+import { findPeakDay, findWindowAroundPeak, findTopPeaks } from '@/lib/breadth/extremes'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,6 +61,15 @@ const SYSTEM_PROMPT = `You are an elite Trading Copilot. You are concise, data-d
 - For extremes/heatmaps: use the "heatmap" or "extremes" dataset
 - For options analysis: use the "options_chain" dataset
 - For price charts: use the "aggregates" dataset
+- For breadth analysis: use compute_breadth_extremes with universe IDs (soxx, qqq, spy, iwm)
+- For methodology questions: use explain_universe to show data sources
+
+## Breadth Analysis:
+- "Semis breadth" or "SOX breadth" -> use universe="soxx" (SOXX ETF constituents as proxy)
+- "Nasdaq breadth" -> use universe="qqq" (QQQ ETF top holdings)
+- "S&P breadth" -> use universe="spy" (SPY ETF top holdings)
+- "Russell breadth" or "small cap breadth" -> use universe="iwm"
+- Always disclose: "Using [ETF] constituents as a proxy for [Index] breadth"
 
 ## Trader Semantics:
 - "Days since high" measures recency of strength - 0 = at new highs (bullish)
@@ -422,6 +435,134 @@ export async function POST(req: Request) {
               return { type: 'error', title: 'No Data', message: 'No movers data available', recoverable: true }
             } catch (error) {
               return { type: 'error', title: 'Error', message: String(error), recoverable: true }
+            }
+          },
+        }),
+
+        // Breadth Analysis - ETF Proxy Based
+        compute_breadth_extremes: tool({
+          description:
+            'Compute breadth analysis for a universe (SOXX/semiconductors, QQQ/Nasdaq, SPY/S&P, IWM/Russell). ' +
+            'Finds the worst/best periods based on % of new lows or new highs. ' +
+            'Use for questions like "worst 100-day stretch for semis" or "when was breadth most washed out".',
+          inputSchema: zodSchema(z.object({
+            universe: z.string().describe('Universe ID: soxx (semis), qqq (nasdaq), spy (s&p), iwm (russell), dia (dow)'),
+            lookbackDays: z.number().default(100).describe('Rolling window for new high/low detection (default: 100)'),
+            searchDays: z.number().default(500).describe('How many days of history to search (default: 500)'),
+            windowDays: z.number().default(100).describe('Window size around peak day (default: 100)'),
+            metric: z.enum(['new_lows', 'new_highs']).default('new_lows').describe('Which metric to analyze'),
+          })),
+          execute: async ({ universe: universeId, lookbackDays, searchDays, windowDays, metric }) => {
+            // Resolve universe
+            const universe = resolveUniverse(universeId)
+            if (!universe) {
+              return {
+                type: 'error',
+                title: 'Unknown Universe',
+                message: `"${universeId}" is not a valid universe. Use: soxx, smh, qqq, spy, iwm, dia`,
+                recoverable: true,
+              }
+            }
+
+            try {
+              // Fetch data for all symbols
+              const fetchDays = searchDays + lookbackDays + 30
+              const fetchResult = await fetchBulkDailyBars(universe.symbols, fetchDays)
+
+              if (fetchResult.succeeded.length === 0) {
+                return {
+                  type: 'error',
+                  title: 'No Data',
+                  message: 'Failed to fetch data for any symbols',
+                  recoverable: true,
+                }
+              }
+
+              // Align and compute breadth
+              const { dates, alignedBars, validSymbols } = alignBarsByDate(fetchResult.barsBySymbol)
+              const slicedDates = dates.slice(-searchDays - lookbackDays)
+              const slicedBars: Record<string, (typeof alignedBars)[string]> = {}
+              for (const symbol of validSymbols) {
+                slicedBars[symbol] = alignedBars[symbol].slice(-searchDays - lookbackDays)
+              }
+
+              const series = computeBreadthSeries(slicedBars, slicedDates, lookbackDays)
+              const peak = findPeakDay(series, metric)
+              const window = peak ? findWindowAroundPeak(series, metric, windowDays) : null
+              const topPeaks = findTopPeaks(series, metric, 5)
+
+              return {
+                type: 'breadth_report',
+                universe: {
+                  id: universe.id,
+                  label: universe.label,
+                  disclosureText: universe.disclosureText,
+                  etfProxy: universe.etfProxy,
+                },
+                params: { lookbackDays, searchDays, windowDays, metric },
+                constituentsUsed: validSymbols.length,
+                failedTickers: fetchResult.failed,
+                series: series.entries.slice(-100), // Last 100 entries for display
+                peak,
+                window,
+                topPeaks,
+                asOf: new Date().toISOString(),
+              }
+            } catch (error) {
+              return {
+                type: 'error',
+                title: 'Breadth Calculation Error',
+                message: error instanceof Error ? error.message : 'Unknown error',
+                recoverable: true,
+              }
+            }
+          },
+        }),
+
+        // Explain Universe
+        explain_universe: tool({
+          description:
+            'Explain what a breadth universe contains and how it is used as a proxy for index breadth. ' +
+            'Use when users ask about data sources or methodology.',
+          inputSchema: zodSchema(z.object({
+            universeId: z.string().optional().describe('Specific universe to explain, or omit for all'),
+          })),
+          execute: async ({ universeId }) => {
+            if (universeId) {
+              const universe = resolveUniverse(universeId)
+              if (!universe) {
+                return {
+                  type: 'universe_explanation',
+                  found: false,
+                  message: `Unknown universe: ${universeId}. Available: soxx, smh, qqq, spy, iwm, dia`,
+                }
+              }
+              return {
+                type: 'universe_explanation',
+                found: true,
+                universe: {
+                  id: universe.id,
+                  label: universe.label,
+                  description: universe.description,
+                  disclosureText: universe.disclosureText,
+                  etfProxy: universe.etfProxy,
+                  symbolCount: universe.symbols.length,
+                  sampleSymbols: universe.symbols.slice(0, 10),
+                },
+              }
+            }
+
+            // List all universes
+            const all = listUniverses()
+            return {
+              type: 'universe_list',
+              universes: all.map(u => ({
+                id: u.id,
+                label: u.label,
+                description: u.description,
+                etfProxy: u.etfProxy,
+                symbolCount: u.symbols.length,
+              })),
             }
           },
         }),

@@ -3,6 +3,7 @@ import {
   fetchDailyBars,
   computeEnhancedMetrics,
   buildResponseMeta,
+  fetchMarketStatus,
   type HeatmapMetrics,
   type DailyBar,
 } from "@/lib/massive-api"
@@ -55,6 +56,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Refresh market status cache (non-blocking, failure is OK)
+    fetchMarketStatus().catch(() => {})
+
     // Fetch with extra buffer for lookback computation
     const fetchDays = Math.max(days + lookback + 30, 252)
     const barsPromises = symbols.map((symbol) =>

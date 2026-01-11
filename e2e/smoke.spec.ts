@@ -140,6 +140,38 @@ test.describe('API Health Checks', () => {
       expect(body).toHaveProperty('error')
     }
   })
+
+  test('breadth API validates parameters', async ({ request }) => {
+    // Test with invalid universe
+    const response = await request.get('/api/breadth?universe=invalid')
+    expect(response.status()).toBe(400)
+
+    const body = await response.json()
+    expect(body.success).toBe(false)
+    expect(body.error.code).toBe('INVALID_UNIVERSE')
+  })
+
+  test('breadth API responds to valid request', async ({ request }) => {
+    // This test may take longer due to bulk data fetch
+    const response = await request.get(
+      '/api/breadth?universe=soxx&lookback=50&searchDays=100&metric=new_lows'
+    )
+
+    // Should either succeed or return structured error (API key required)
+    expect([200, 500, 502, 503]).toContain(response.status())
+
+    const body = await response.json()
+
+    if (response.status() === 200) {
+      expect(body.success).toBe(true)
+      expect(body.data).toHaveProperty('universe')
+      expect(body.data).toHaveProperty('series')
+      expect(body.data).toHaveProperty('peak')
+    } else {
+      expect(body.success).toBe(false)
+      expect(body.error).toHaveProperty('code')
+    }
+  })
 })
 
 test.describe('Error Boundary Tests', () => {

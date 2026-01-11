@@ -25,6 +25,53 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>
 
 // =============================================================================
+// Runtime Environment Checks (for API routes)
+// =============================================================================
+
+export interface EnvCheck {
+  isValid: boolean
+  missing: string[]
+}
+
+/**
+ * Check if MASSIVE_API_KEY is configured.
+ * Use this at the start of API routes that require market data.
+ */
+export function requireMassiveApiKey(): EnvCheck {
+  const key = process.env.MASSIVE_API_KEY
+  return {
+    isValid: !!key && key.length > 0,
+    missing: !key ? ['MASSIVE_API_KEY'] : [],
+  }
+}
+
+/**
+ * Check if DATABASE_URL is configured.
+ * Use this at the start of API routes that require database access.
+ */
+export function requireDatabaseUrl(): EnvCheck {
+  const url = process.env.DATABASE_URL
+  return {
+    isValid: !!url && url.length > 0,
+    missing: !url ? ['DATABASE_URL'] : [],
+  }
+}
+
+/**
+ * Check if at least one AI provider is configured.
+ * Use this at the start of chat-related API routes.
+ */
+export function requireAiProvider(): EnvCheck {
+  const anthropic = process.env.ANTHROPIC_API_KEY
+  const openai = process.env.OPENAI_API_KEY
+  const hasAi = (!!anthropic && anthropic.length > 0) || (!!openai && openai.length > 0)
+  return {
+    isValid: hasAi,
+    missing: hasAi ? [] : ['ANTHROPIC_API_KEY or OPENAI_API_KEY'],
+  }
+}
+
+// =============================================================================
 // Validation Functions
 // =============================================================================
 

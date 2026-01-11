@@ -8,6 +8,7 @@ import { MarketPulseHUD } from './market-pulse-hud'
 import { HeatmapCard } from './heatmap-card'
 import { BreadthPanel } from './breadth-panel'
 import { ErrorCard } from './error-card'
+import { BreadthReport } from '@/components/breadth-report'
 
 // =============================================================================
 // Renderer Registry
@@ -51,6 +52,147 @@ const renderers: Record<string, RendererFn> = {
       onPin={onPin}
     />
   ),
+
+  breadth_report: (data) => {
+    // Type assertion for breadth report data from AI tool
+    const reportData = data as unknown as {
+      type: 'breadth_report'
+      universe: {
+        id: string
+        label: string
+        disclosureText: string
+        etfProxy: string
+      }
+      params: {
+        lookbackDays: number
+        searchDays: number
+        windowDays: number
+        metric: 'new_lows' | 'new_highs'
+      }
+      constituentsUsed: number
+      failedTickers: string[]
+      series: Array<{
+        date: string
+        pctNewLows: number
+        pctNewHighs: number
+        countNewLows: number
+        countNewHighs: number
+        countValid: number
+        newLowSymbols: string[]
+        newHighSymbols: string[]
+      }>
+      peak: {
+        date: string
+        value: number
+        count: number
+        countValid: number
+        symbols: string[]
+      } | null
+      window: {
+        windowStart: string
+        windowEnd: string
+        peakDate: string
+        peakValue: number
+        avgValue: number
+        windowDays: number
+        tradingDays: number
+      } | null
+      topPeaks?: Array<{
+        date: string
+        value: number
+        count: number
+        countValid: number
+        symbols: string[]
+      }>
+      asOf: string
+    }
+
+    return (
+      <BreadthReport
+        universe={reportData.universe}
+        params={reportData.params}
+        constituentsUsed={reportData.constituentsUsed}
+        failedTickers={reportData.failedTickers}
+        series={reportData.series}
+        peak={reportData.peak}
+        window={reportData.window}
+        topPeaks={reportData.topPeaks}
+        asOf={reportData.asOf}
+      />
+    )
+  },
+
+  // Universe explanation (text response)
+  universe_explanation: (data) => {
+    const explainData = data as unknown as {
+      type: 'universe_explanation'
+      found: boolean
+      message?: string
+      universe?: {
+        id: string
+        label: string
+        description: string
+        disclosureText: string
+        etfProxy: string
+        symbolCount: number
+        sampleSymbols: string[]
+      }
+    }
+
+    if (!explainData.found) {
+      return (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-300">
+          {explainData.message}
+        </div>
+      )
+    }
+
+    const u = explainData.universe!
+    return (
+      <div className="rounded-lg border border-white/10 bg-black/40 p-4 text-sm">
+        <h4 className="font-semibold text-white mb-2">{u.label}</h4>
+        <p className="text-white/70 mb-3">{u.description}</p>
+        <div className="space-y-2 text-xs text-white/60">
+          <p><span className="text-white/40">ETF Proxy:</span> {u.etfProxy}</p>
+          <p><span className="text-white/40">Constituents:</span> {u.symbolCount}</p>
+          <p><span className="text-white/40">Sample:</span> {u.sampleSymbols.join(', ')}</p>
+        </div>
+        <p className="mt-3 text-xs text-amber-400/80 italic">{u.disclosureText}</p>
+      </div>
+    )
+  },
+
+  // Universe list
+  universe_list: (data) => {
+    const listData = data as unknown as {
+      type: 'universe_list'
+      universes: Array<{
+        id: string
+        label: string
+        description: string
+        etfProxy: string
+        symbolCount: number
+      }>
+    }
+
+    return (
+      <div className="rounded-lg border border-white/10 bg-black/40 p-4">
+        <h4 className="font-semibold text-white mb-3">Available Breadth Universes</h4>
+        <div className="space-y-2">
+          {listData.universes.map(u => (
+            <div key={u.id} className="flex items-center justify-between text-sm border-b border-white/5 pb-2">
+              <div>
+                <span className="font-mono text-primary">{u.id}</span>
+                <span className="text-white/40 mx-2">→</span>
+                <span className="text-white/70">{u.label}</span>
+              </div>
+              <span className="text-xs text-white/40">{u.symbolCount} symbols</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  },
 
   error: (data) => (
     <ErrorCard
