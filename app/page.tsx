@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
-import { AlertCircle, Share2, TrendingUp, Activity, Loader2 } from "lucide-react"
+import Image from "next/image"
+import { AlertCircle, Share2, Activity, Loader2 } from "lucide-react"
 import { ExportMenu } from "@/components/export-menu"
 import { DashboardControls, type DashboardConfig } from "@/components/dashboard-controls"
 import { StatsBar } from "@/components/stats-bar"
@@ -100,10 +101,15 @@ export default function DashboardPage() {
         <div className="max-w-[1800px] mx-auto px-4 py-2">
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center justify-center w-8 h-8 rounded bg-primary">
-                <TrendingUp className="w-4 h-4 text-primary-foreground" />
-              </div>
+            <div className="flex items-center gap-3">
+              <Image
+                src="/tucson-trader-logo-small.png"
+                alt="Tucson Trader"
+                width={48}
+                height={48}
+                className="rounded-lg"
+                priority
+              />
               <div>
                 <h1 className="text-base font-semibold tracking-tight text-foreground">
                   Tucson Trader

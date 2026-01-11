@@ -8,24 +8,45 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://tucson-trader.up.railway.app"),
   title: "Tucson Trader | Market Analysis Dashboard",
   description: "Professional market extremes and heatmap analysis for trading",
   icons: {
     icon: [
       {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
+        url: "/favicon-32x32.png",
+        sizes: "32x32",
+        type: "image/png",
       },
       {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
+        url: "/favicon-16x16.png",
+        sizes: "16x16",
+        type: "image/png",
       },
     ],
-    apple: "/apple-icon.png",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "Tucson Trader",
+    description: "Professional market extremes and heatmap analysis for trading",
+    url: "https://tucsontrader.com",
+    siteName: "Tucson Trader",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 630,
+        height: 630,
+        alt: "Tucson Trader - Market Analysis Dashboard",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Tucson Trader",
+    description: "Professional market extremes and heatmap analysis for trading",
+    images: ["/og-image.png"],
   },
 }
 
