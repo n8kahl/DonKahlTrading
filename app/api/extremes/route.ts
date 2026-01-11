@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { fetchDailyBars, computeEnhancedMetrics } from "@/lib/massive-api"
+import { fetchDailyBars, computeEnhancedMetrics, buildResponseMeta } from "@/lib/massive-api"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -27,43 +27,31 @@ export async function GET(request: NextRequest) {
       const symbol = symbols[index]
 
       if (result.status === "fulfilled" && result.value.length > 0) {
-        console.log(`[v0] Processing ${symbol}:`, {
-          totalBars: result.value.length,
-          firstBar: result.value[0],
-          lastBar: result.value[result.value.length - 1],
-        })
+        // Bars arrive in descending order (most recent first)
+        // Reverse to chronological for proper rolling window computation
+        const allBarsChronological = [...result.value].reverse()
 
-        const bars = result.value.slice(0, days).reverse()
-        console.log(`[v0] After slice and reverse for ${symbol}:`, {
-          barsCount: bars.length,
-          firstDate: bars[0]?.date,
-          lastDate: bars[bars.length - 1]?.date,
-        })
+        // Compute metrics on full dataset (has lookback + days + buffer)
+        const allMetrics = computeEnhancedMetrics(allBarsChronological, lookback, basis)
 
-        const metrics = computeEnhancedMetrics(bars, lookback, basis).reverse()
-
-        console.log(`[v0] Metrics for ${symbol}:`, {
-          metricsCount: metrics.length,
-          firstMetric: metrics[0],
-          lastMetric: metrics[metrics.length - 1],
-        })
+        // Slice last `days` bars and metrics for response
+        const displayBars = allBarsChronological.slice(-days)
+        const displayMetrics = allMetrics.slice(-days)
 
         if (dates.length === 0) {
-          dates.push(...bars.map((bar) => bar.date))
+          dates.push(...displayBars.map((bar) => bar.date))
         }
 
-        data[symbol] = metrics
-        rawBars[symbol] = bars
+        data[symbol] = displayMetrics
+        rawBars[symbol] = displayBars
       } else {
-        console.warn(`Failed to fetch ${symbol}`)
         data[symbol] = []
         rawBars[symbol] = []
       }
     })
 
-    return NextResponse.json({ dates, data, rawBars })
+    return NextResponse.json({ dates, data, rawBars, meta: buildResponseMeta() })
   } catch (error) {
-    console.error("Error in extremes API:", error)
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 })
   }
 }

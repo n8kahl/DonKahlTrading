@@ -1,23 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { fetchDailyBars, computeHeatmap, getMockHeatmapData } from "@/lib/massive-api"
+import { fetchDailyBars, computeHeatmap, getMockHeatmapData, buildResponseMeta } from "@/lib/massive-api"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const symbolsParam = searchParams.get("symbols") || "DJI,SPX,IXIC,NDX,RUT,SOX"
   const lookback = Number.parseInt(searchParams.get("lookback") || "63")
-  const basis = (searchParams.get("basis") || "high") as "high" | "close"
+  const basis = (searchParams.get("basis") || "close") as "close" | "intraday"
   const days = Number.parseInt(searchParams.get("days") || "63")
 
   const symbols = symbolsParam.split(",").map((s) => s.trim())
 
-  // Check if API key is configured
   if (!process.env.MASSIVE_API_KEY) {
-    console.warn("MASSIVE_API_KEY not configured, returning mock data")
     const mockData = getMockHeatmapData(symbols, days)
     return NextResponse.json({
       ...mockData,
       isMock: true,
       error: "MASSIVE_API_KEY not configured",
+      meta: buildResponseMeta(),
     })
   }
 
@@ -34,18 +33,25 @@ export async function GET(request: NextRequest) {
       const symbol = symbols[index]
 
       if (result.status === "fulfilled" && result.value.length > 0) {
-        const bars = result.value.slice(0, days).reverse() // Most recent first
-        const heatmapValues = computeHeatmap(bars, lookback, basis).reverse()
+        // Bars arrive in descending order (most recent first)
+        // Reverse to chronological for proper rolling window computation
+        const allBarsChronological = [...result.value].reverse()
+
+        // Compute heatmap on full dataset (has lookback + days + buffer)
+        const allHeatmapValues = computeHeatmap(allBarsChronological, lookback, basis)
+
+        // Slice last `days` for response
+        const displayBars = allBarsChronological.slice(-days)
+        const displayValues = allHeatmapValues.slice(-days)
 
         if (dates.length === 0) {
-          dates.push(...bars.map((bar) => bar.date))
+          dates.push(...displayBars.map((bar) => bar.date))
         }
 
-        data[symbol] = heatmapValues
+        data[symbol] = displayValues
       } else {
-        // Symbol failed, use mock data
-        console.warn(`Failed to fetch ${symbol}, using mock data`)
-        data[symbol] = Array.from({ length: days }, () => Math.floor(Math.random() * 64))
+        // Symbol failed, use empty array
+        data[symbol] = []
       }
     })
 
@@ -59,16 +65,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ dates, data, isMock: false })
+    return NextResponse.json({ dates, data, isMock: false, meta: buildResponseMeta() })
   } catch (error) {
-    console.error("Error in heatmap API:", error)
-
     // Return mock data on error
     const mockData = getMockHeatmapData(symbols, days)
     return NextResponse.json({
       ...mockData,
       isMock: true,
       error: error instanceof Error ? error.message : "Unknown error",
+      meta: buildResponseMeta(),
     })
   }
 }

@@ -197,6 +197,103 @@ export interface SnapshotResponse {
 }
 
 // -----------------------------------------------------------------------------
+// Universal Snapshot Types
+// -----------------------------------------------------------------------------
+
+export interface UniversalSnapshotItem {
+  ticker: string
+  name?: string
+  market: string
+  locale: string
+  type: string
+  currency_name?: string
+  last_updated_utc?: string
+  // Session data
+  session?: {
+    open: number
+    high: number
+    low: number
+    close: number
+    volume: number
+    change: number
+    change_percent: number
+    previous_close: number
+    early_trading_change?: number
+    early_trading_change_percent?: number
+    late_trading_change?: number
+    late_trading_change_percent?: number
+  }
+  // Last quote
+  last_quote?: {
+    bid: number
+    bid_size: number
+    ask: number
+    ask_size: number
+    last_updated: number
+  }
+  // Last trade
+  last_trade?: {
+    price: number
+    size: number
+    exchange: number
+    conditions?: number[]
+    timestamp: number
+  }
+  // Fair market value (for options)
+  fmv?: number
+  // Underlying asset info (for options/derivatives)
+  underlying_asset?: {
+    ticker: string
+    price: number
+    change_to_break_even?: number
+  }
+  // Greeks (for options)
+  greeks?: Greeks
+  implied_volatility?: number
+  open_interest?: number
+  break_even_price?: number
+}
+
+export interface UniversalSnapshotResponse {
+  success: boolean
+  results: UniversalSnapshotItem[]
+  entitlement: DataEntitlement
+  request_id?: string
+  error?: ApiError
+}
+
+// -----------------------------------------------------------------------------
+// Index Snapshot Types
+// -----------------------------------------------------------------------------
+
+export interface IndexSnapshotItem {
+  ticker: string
+  name: string
+  market: string
+  locale: string
+  type: 'indices'
+  value: number
+  session: {
+    open: number
+    high: number
+    low: number
+    close: number
+    change: number
+    change_percent: number
+    previous_close: number
+  }
+  last_updated: number
+}
+
+export interface IndexSnapshotResponse {
+  success: boolean
+  results: IndexSnapshotItem[]
+  entitlement: DataEntitlement
+  request_id?: string
+  error?: ApiError
+}
+
+// -----------------------------------------------------------------------------
 // Error Handling Types
 // -----------------------------------------------------------------------------
 
@@ -245,7 +342,19 @@ const INTERVAL_MAP: Record<IntradayInterval, { multiplier: number; timespan: str
   '1h': { multiplier: 1, timespan: 'hour' },
 }
 
-const BASE_URL = 'https://api.polygon.io'
+// Unified base URL - configurable via environment variable
+const BASE_URL = process.env.POLYGON_BASE_URL || 'https://api.polygon.io'
+
+// Asset classes for Universal Snapshot
+export type AssetClass = 'stocks' | 'options' | 'crypto' | 'forex' | 'indices'
+
+// Entitlement/delay status for data freshness
+export interface DataEntitlement {
+  delayed: boolean
+  delayMinutes: number
+  entitlementId?: string
+  source: 'realtime' | 'delayed' | 'eod'
+}
 
 // -----------------------------------------------------------------------------
 // Utility Functions
@@ -341,6 +450,31 @@ export function getCacheRevalidation(): number {
     return 300 // 5 minutes during extended hours
   }
   return 3600 // 1 hour when closed
+}
+
+export function getCurrentMarketPhase(): MarketPhase {
+  if (!cachedMarketStatus) {
+    return 'closed'
+  }
+  const { status } = cachedMarketStatus
+  // Prioritize NYSE status
+  return status.exchanges.nyse
+}
+
+export interface ResponseMeta {
+  lastFetchedAt: string
+  marketStatus: MarketPhase
+  isDelayed: boolean
+  source: 'polygon'
+}
+
+export function buildResponseMeta(): ResponseMeta {
+  return {
+    lastFetchedAt: new Date().toISOString(),
+    marketStatus: getCurrentMarketPhase(),
+    isDelayed: true, // Polygon basic tier has 15-min delay
+    source: 'polygon',
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -773,12 +907,265 @@ export async function fetchTickerSnapshot(symbol: string): Promise<SnapshotRespo
       },
     }
   } catch (error) {
-    console.error('[API] Snapshot fetch error:', error instanceof Error ? error.message : 'Unknown error')
     return {
       success: false,
       ticker: null,
       error: createError('FETCH_FAILED', 'Failed to fetch snapshot', symbol, 'snapshot'),
     }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// API Functions - Universal Snapshot
+// -----------------------------------------------------------------------------
+
+export interface UniversalSnapshotOptions {
+  symbols: string[]
+  assetClass?: AssetClass
+  includeOtc?: boolean
+}
+
+/**
+ * Fetches universal snapshot data for multiple symbols across asset classes.
+ * Uses the Polygon Universal Snapshot endpoint.
+ *
+ * @param options - Configuration for the snapshot request
+ * @returns Promise with snapshot results and entitlement info
+ */
+export async function fetchUniversalSnapshot(
+  options: UniversalSnapshotOptions
+): Promise<UniversalSnapshotResponse> {
+  const apiKey = getApiKey()
+
+  if (!apiKey) {
+    return {
+      success: false,
+      results: [],
+      entitlement: { delayed: true, delayMinutes: 15, source: 'delayed' },
+      error: createError('API_KEY_MISSING', 'API key is not configured'),
+    }
+  }
+
+  const { symbols, assetClass = 'stocks', includeOtc = false } = options
+
+  // Normalize symbols based on asset class
+  const normalizedSymbols = symbols.map((s) =>
+    assetClass === 'indices' ? normalizeSymbol(s) : s.toUpperCase()
+  )
+
+  try {
+    const params = new URLSearchParams({
+      'ticker.any_of': normalizedSymbols.join(','),
+      apiKey,
+    })
+
+    if (!includeOtc) {
+      params.append('include_otc', 'false')
+    }
+
+    const url = `${BASE_URL}/v3/snapshot?${params.toString()}`
+
+    const response = await fetch(url, {
+      next: { revalidate: isMarketOpen() ? 15 : 300 },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return {
+        success: false,
+        results: [],
+        entitlement: { delayed: true, delayMinutes: 15, source: 'delayed' },
+        error: createError('FETCH_FAILED', `HTTP ${response.status}: ${errorText}`, undefined, 'universal-snapshot'),
+      }
+    }
+
+    const data = await response.json()
+
+    // Parse entitlement from response headers or data
+    const entitlement = parseEntitlement(response, data)
+
+    const results: UniversalSnapshotItem[] = (data.results || []).map((item: any) => ({
+      ticker: item.ticker,
+      name: item.name,
+      market: item.market,
+      locale: item.locale,
+      type: item.type,
+      currency_name: item.currency_name,
+      last_updated_utc: item.last_updated_utc,
+      session: item.session
+        ? {
+            open: item.session.open || 0,
+            high: item.session.high || 0,
+            low: item.session.low || 0,
+            close: item.session.close || 0,
+            volume: item.session.volume || 0,
+            change: item.session.change || 0,
+            change_percent: item.session.change_percent || 0,
+            previous_close: item.session.previous_close || 0,
+            early_trading_change: item.session.early_trading_change,
+            early_trading_change_percent: item.session.early_trading_change_percent,
+            late_trading_change: item.session.late_trading_change,
+            late_trading_change_percent: item.session.late_trading_change_percent,
+          }
+        : undefined,
+      last_quote: item.last_quote
+        ? {
+            bid: item.last_quote.bid || 0,
+            bid_size: item.last_quote.bid_size || 0,
+            ask: item.last_quote.ask || 0,
+            ask_size: item.last_quote.ask_size || 0,
+            last_updated: item.last_quote.last_updated || 0,
+          }
+        : undefined,
+      last_trade: item.last_trade
+        ? {
+            price: item.last_trade.price || 0,
+            size: item.last_trade.size || 0,
+            exchange: item.last_trade.exchange || 0,
+            conditions: item.last_trade.conditions,
+            timestamp: item.last_trade.timestamp || 0,
+          }
+        : undefined,
+      fmv: item.fmv,
+      underlying_asset: item.underlying_asset,
+      greeks: item.greeks,
+      implied_volatility: item.implied_volatility,
+      open_interest: item.open_interest,
+      break_even_price: item.break_even_price,
+    }))
+
+    return {
+      success: true,
+      results,
+      entitlement,
+      request_id: data.request_id,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      results: [],
+      entitlement: { delayed: true, delayMinutes: 15, source: 'delayed' },
+      error: createError('FETCH_FAILED', 'Failed to fetch universal snapshot', undefined, 'universal-snapshot'),
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// API Functions - Index Snapshot
+// -----------------------------------------------------------------------------
+
+/**
+ * Fetches snapshot data specifically for market indices.
+ * Uses the Polygon Indices Snapshot endpoint with proper I: prefix handling.
+ *
+ * @param symbols - Array of index symbols (SPX, NDX, etc.)
+ * @returns Promise with index snapshot results and entitlement info
+ */
+export async function fetchIndexSnapshot(symbols: string[]): Promise<IndexSnapshotResponse> {
+  const apiKey = getApiKey()
+
+  if (!apiKey) {
+    return {
+      success: false,
+      results: [],
+      entitlement: { delayed: true, delayMinutes: 15, source: 'delayed' },
+      error: createError('API_KEY_MISSING', 'API key is not configured'),
+    }
+  }
+
+  // Normalize symbols to include I: prefix for indices
+  const normalizedSymbols = symbols.map((s) => normalizeSymbol(s))
+
+  try {
+    const params = new URLSearchParams({
+      'ticker.any_of': normalizedSymbols.join(','),
+      apiKey,
+    })
+
+    const url = `${BASE_URL}/v3/snapshot/indices?${params.toString()}`
+
+    const response = await fetch(url, {
+      next: { revalidate: isMarketOpen() ? 60 : 300 },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return {
+        success: false,
+        results: [],
+        entitlement: { delayed: true, delayMinutes: 15, source: 'delayed' },
+        error: createError('FETCH_FAILED', `HTTP ${response.status}: ${errorText}`, undefined, 'index-snapshot'),
+      }
+    }
+
+    const data = await response.json()
+
+    // Parse entitlement - index data may have different delay based on subscription
+    const entitlement = parseEntitlement(response, data)
+
+    const results: IndexSnapshotItem[] = (data.results || []).map((item: any) => ({
+      ticker: item.ticker,
+      name: item.name || '',
+      market: item.market || 'indices',
+      locale: item.locale || 'us',
+      type: 'indices' as const,
+      value: item.value || item.session?.close || 0,
+      session: {
+        open: item.session?.open || 0,
+        high: item.session?.high || 0,
+        low: item.session?.low || 0,
+        close: item.session?.close || 0,
+        change: item.session?.change || 0,
+        change_percent: item.session?.change_percent || 0,
+        previous_close: item.session?.previous_close || 0,
+      },
+      last_updated: item.last_updated || Date.now(),
+    }))
+
+    return {
+      success: true,
+      results,
+      entitlement,
+      request_id: data.request_id,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      results: [],
+      entitlement: { delayed: true, delayMinutes: 15, source: 'delayed' },
+      error: createError('FETCH_FAILED', 'Failed to fetch index snapshot', undefined, 'index-snapshot'),
+    }
+  }
+}
+
+/**
+ * Parses entitlement/delay information from API response.
+ * Different Polygon plans have different data freshness:
+ * - Basic: 15-minute delayed
+ * - Stocks Starter: Real-time stocks, delayed options
+ * - Options: Real-time options
+ * - Indices: May be delayed depending on exchange agreements
+ */
+function parseEntitlement(response: Response, data: any): DataEntitlement {
+  // Check for delay indicator in response headers
+  const delayHeader = response.headers.get('x-polygon-delayed')
+  const entitlementHeader = response.headers.get('x-polygon-entitlement')
+
+  // Check data payload for delay status
+  const isDelayed = data.delayed === true || delayHeader === 'true'
+  const delayMinutes = data.delay_minutes || (isDelayed ? 15 : 0)
+
+  // Determine source based on delay status
+  let source: DataEntitlement['source'] = 'realtime'
+  if (isDelayed) {
+    source = delayMinutes >= 1440 ? 'eod' : 'delayed' // 1440 = end of day
+  }
+
+  return {
+    delayed: isDelayed,
+    delayMinutes,
+    entitlementId: entitlementHeader || undefined,
+    source,
   }
 }
 
@@ -804,9 +1191,7 @@ export async function fetchDailyBars(symbol: string, days = 252): Promise<DailyB
   const toStr = formatDate(toDate)
 
   try {
-    // Try Polygon first, fall back to Massive
-    const baseUrl = process.env.POLYGON_API_KEY ? 'https://api.polygon.io' : 'https://api.massive.com'
-    const url = `${baseUrl}/v2/aggs/ticker/${normalizedSymbol}/range/1/day/${fromStr}/${toStr}?adjusted=true&sort=desc&limit=50000&apiKey=${apiKey}`
+    const url = `${BASE_URL}/v2/aggs/ticker/${normalizedSymbol}/range/1/day/${fromStr}/${toStr}?adjusted=true&sort=desc&limit=50000&apiKey=${apiKey}`
 
     const response = await fetch(url, {
       next: { revalidate: getCacheRevalidation() },
@@ -912,12 +1297,13 @@ export function computeEnhancedMetrics(
   return metrics
 }
 
-export function computeHeatmap(bars: DailyBar[], lookback: number, basis: 'high' | 'close'): number[] {
+export function computeHeatmap(bars: DailyBar[], lookback: number, basis: 'close' | 'intraday'): number[] {
   if (bars.length < lookback) {
     return new Array(bars.length).fill(lookback)
   }
 
-  const values = bars.map((bar) => (basis === 'high' ? bar.high : bar.close))
+  // 'intraday' uses daily high, 'close' uses closing price
+  const values = bars.map((bar) => (basis === 'intraday' ? bar.high : bar.close))
   const daysSince: number[] = []
 
   for (let i = 0; i < bars.length; i++) {
@@ -962,6 +1348,744 @@ export function getMockHeatmapData(symbols: string[], days: number): HeatmapData
   })
 
   return { dates, data }
+}
+
+// -----------------------------------------------------------------------------
+// Sector ETF Mapping
+// -----------------------------------------------------------------------------
+
+export const SECTOR_ETFS = {
+  XLK: 'Technology',
+  XLF: 'Financials',
+  XLV: 'Healthcare',
+  XLE: 'Energy',
+  XLI: 'Industrials',
+  XLP: 'Consumer Staples',
+  XLY: 'Consumer Discretionary',
+  XLB: 'Materials',
+  XLU: 'Utilities',
+  XLRE: 'Real Estate',
+  XLC: 'Communication Services',
+} as const
+
+export type SectorETF = keyof typeof SECTOR_ETFS
+
+// Stock to sector mapping (common large caps)
+export const STOCK_SECTOR_MAP: Record<string, SectorETF> = {
+  // Technology
+  AAPL: 'XLK', MSFT: 'XLK', NVDA: 'XLK', AVGO: 'XLK', AMD: 'XLK', INTC: 'XLK',
+  CRM: 'XLK', ORCL: 'XLK', ADBE: 'XLK', CSCO: 'XLK', IBM: 'XLK', TXN: 'XLK',
+  QCOM: 'XLK', MU: 'XLK', AMAT: 'XLK', LRCX: 'XLK', KLAC: 'XLK', MRVL: 'XLK',
+  // Financials
+  JPM: 'XLF', BAC: 'XLF', WFC: 'XLF', GS: 'XLF', MS: 'XLF', C: 'XLF',
+  AXP: 'XLF', BLK: 'XLF', SCHW: 'XLF', USB: 'XLF', PNC: 'XLF', BK: 'XLF',
+  // Healthcare
+  UNH: 'XLV', JNJ: 'XLV', LLY: 'XLV', PFE: 'XLV', MRK: 'XLV', ABBV: 'XLV',
+  TMO: 'XLV', ABT: 'XLV', DHR: 'XLV', BMY: 'XLV', AMGN: 'XLV', GILD: 'XLV',
+  // Energy
+  XOM: 'XLE', CVX: 'XLE', COP: 'XLE', SLB: 'XLE', EOG: 'XLE', OXY: 'XLE',
+  PSX: 'XLE', MPC: 'XLE', VLO: 'XLE', HAL: 'XLE', DVN: 'XLE', HES: 'XLE',
+  // Consumer Discretionary
+  AMZN: 'XLY', TSLA: 'XLY', HD: 'XLY', MCD: 'XLY', NKE: 'XLY', SBUX: 'XLY',
+  LOW: 'XLY', TJX: 'XLY', BKNG: 'XLY', CMG: 'XLY', MAR: 'XLY', ORLY: 'XLY',
+  // Communication Services
+  GOOGL: 'XLC', GOOG: 'XLC', META: 'XLC', NFLX: 'XLC', DIS: 'XLC', CMCSA: 'XLC',
+  VZ: 'XLC', TMUS: 'XLC', T: 'XLC', CHTR: 'XLC', EA: 'XLC', TTWO: 'XLC',
+  // Industrials
+  CAT: 'XLI', GE: 'XLI', HON: 'XLI', UNP: 'XLI', BA: 'XLI', RTX: 'XLI',
+  DE: 'XLI', LMT: 'XLI', MMM: 'XLI', UPS: 'XLI', FDX: 'XLI', WM: 'XLI',
+  // Consumer Staples
+  PG: 'XLP', KO: 'XLP', PEP: 'XLP', COST: 'XLP', WMT: 'XLP', PM: 'XLP',
+  MO: 'XLP', CL: 'XLP', MDLZ: 'XLP', KHC: 'XLP', GIS: 'XLP', SYY: 'XLP',
+  // Materials
+  LIN: 'XLB', APD: 'XLB', SHW: 'XLB', ECL: 'XLB', FCX: 'XLB', NEM: 'XLB',
+  NUE: 'XLB', VMC: 'XLB', MLM: 'XLB', DOW: 'XLB', DD: 'XLB', PPG: 'XLB',
+  // Utilities
+  NEE: 'XLU', DUK: 'XLU', SO: 'XLU', D: 'XLU', AEP: 'XLU', EXC: 'XLU',
+  SRE: 'XLU', XEL: 'XLU', WEC: 'XLU', ED: 'XLU', PEG: 'XLU', ES: 'XLU',
+  // Real Estate
+  PLD: 'XLRE', AMT: 'XLRE', EQIX: 'XLRE', PSA: 'XLRE', CCI: 'XLRE', O: 'XLRE',
+  SPG: 'XLRE', WELL: 'XLRE', DLR: 'XLRE', AVB: 'XLRE', EQR: 'XLRE', VTR: 'XLRE',
+}
+
+// -----------------------------------------------------------------------------
+// Sector Performance Types
+// -----------------------------------------------------------------------------
+
+export interface SectorPerformance {
+  symbol: SectorETF
+  name: string
+  price: number
+  change: number
+  changePercent: number
+  volume: number
+  avgVolume?: number
+  relativeStrength: number // vs SPY
+  signal: 'strong' | 'neutral' | 'weak'
+}
+
+export interface SectorPerformanceResponse {
+  success: boolean
+  sectors: SectorPerformance[]
+  spyPrice: number
+  spyChangePercent: number
+  error?: ApiError
+}
+
+// -----------------------------------------------------------------------------
+// Movers Types
+// -----------------------------------------------------------------------------
+
+export interface Mover {
+  ticker: string
+  price: number
+  change: number
+  changePercent: number
+  volume: number
+  direction: 'up' | 'down'
+}
+
+export interface MoversResponse {
+  success: boolean
+  gainers: Mover[]
+  losers: Mover[]
+  mostActive: Mover[]
+  error?: ApiError
+}
+
+// -----------------------------------------------------------------------------
+// Risk On/Off Types
+// -----------------------------------------------------------------------------
+
+export type RiskRegime = 'risk_on' | 'risk_off' | 'neutral' | 'mixed'
+
+export interface RiskMetrics {
+  regime: RiskRegime
+  confidence: number // 0-100
+  signals: {
+    spyTrend: 'bullish' | 'bearish' | 'neutral'
+    qqqTrend: 'bullish' | 'bearish' | 'neutral'
+    iwmTrend: 'bullish' | 'bearish' | 'neutral'
+    vixLevel: 'low' | 'elevated' | 'high' | 'extreme'
+    breadth: 'healthy' | 'mixed' | 'poor'
+  }
+  details: {
+    spyPctFromHigh: number
+    qqqPctFromHigh: number
+    iwmPctFromHigh: number
+    vixValue: number
+    qqqVsIwm: number // QQQ outperformance vs IWM (growth vs value)
+  }
+}
+
+export interface RiskRegimeResponse {
+  success: boolean
+  metrics: RiskMetrics | null
+  error?: ApiError
+}
+
+// -----------------------------------------------------------------------------
+// Relative Strength Types
+// -----------------------------------------------------------------------------
+
+export interface RelativeStrengthMetrics {
+  symbol: string
+  vsSpyRS: number // Relative strength vs SPY
+  vsSectorRS: number // Relative strength vs sector ETF
+  sectorETF: SectorETF | null
+  spyCorrelation: number // Rolling correlation with SPY
+  beta: number // Beta vs SPY
+  rsRating: 'leader' | 'laggard' | 'inline'
+}
+
+export interface RelativeStrengthResponse {
+  success: boolean
+  metrics: RelativeStrengthMetrics | null
+  spyBars: DailyBar[]
+  sectorBars: DailyBar[]
+  symbolBars: DailyBar[]
+  error?: ApiError
+}
+
+// -----------------------------------------------------------------------------
+// API Functions - Sector Performance
+// -----------------------------------------------------------------------------
+
+export async function fetchSectorPerformance(): Promise<SectorPerformanceResponse> {
+  const apiKey = getApiKey()
+
+  if (!apiKey) {
+    return {
+      success: false,
+      sectors: [],
+      spyPrice: 0,
+      spyChangePercent: 0,
+      error: createError('API_KEY_MISSING', 'API key is not configured'),
+    }
+  }
+
+  try {
+    const sectorSymbols = Object.keys(SECTOR_ETFS)
+    const allSymbols = ['SPY', ...sectorSymbols]
+
+    // Fetch snapshots for all sector ETFs + SPY
+    const response = await fetchUniversalSnapshot({
+      symbols: allSymbols,
+      assetClass: 'stocks',
+    })
+
+    if (!response.success) {
+      return {
+        success: false,
+        sectors: [],
+        spyPrice: 0,
+        spyChangePercent: 0,
+        error: response.error,
+      }
+    }
+
+    const snapshots = new Map(response.results.map((s) => [s.ticker, s]))
+    const spySnapshot = snapshots.get('SPY')
+
+    if (!spySnapshot?.session) {
+      return {
+        success: false,
+        sectors: [],
+        spyPrice: 0,
+        spyChangePercent: 0,
+        error: createError('INVALID_RESPONSE', 'SPY data not available'),
+      }
+    }
+
+    const spyChangePercent = spySnapshot.session.change_percent
+
+    const sectors: SectorPerformance[] = sectorSymbols
+      .map((symbol) => {
+        const snapshot = snapshots.get(symbol)
+        if (!snapshot?.session) return null
+
+        const changePercent = snapshot.session.change_percent
+        const relativeStrength = changePercent - spyChangePercent
+
+        let signal: SectorPerformance['signal'] = 'neutral'
+        if (relativeStrength > 1) signal = 'strong'
+        else if (relativeStrength < -1) signal = 'weak'
+
+        return {
+          symbol: symbol as SectorETF,
+          name: SECTOR_ETFS[symbol as SectorETF],
+          price: snapshot.session.close,
+          change: snapshot.session.change,
+          changePercent,
+          volume: snapshot.session.volume,
+          relativeStrength,
+          signal,
+        }
+      })
+      .filter((s): s is SectorPerformance => s !== null)
+      .sort((a, b) => b.relativeStrength - a.relativeStrength)
+
+    return {
+      success: true,
+      sectors,
+      spyPrice: spySnapshot.session.close,
+      spyChangePercent,
+    }
+  } catch {
+    return {
+      success: false,
+      sectors: [],
+      spyPrice: 0,
+      spyChangePercent: 0,
+      error: createError('FETCH_FAILED', 'Failed to fetch sector performance'),
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// API Functions - Movers (Gainers/Losers/Most Active)
+// -----------------------------------------------------------------------------
+
+export async function fetchMovers(
+  direction: 'gainers' | 'losers' = 'gainers'
+): Promise<MoversResponse> {
+  const apiKey = getApiKey()
+
+  if (!apiKey) {
+    return {
+      success: false,
+      gainers: [],
+      losers: [],
+      mostActive: [],
+      error: createError('API_KEY_MISSING', 'API key is not configured'),
+    }
+  }
+
+  try {
+    // Use the snapshot gainers/losers endpoint
+    const url = `${BASE_URL}/v2/snapshot/locale/us/markets/stocks/${direction}?apiKey=${apiKey}`
+
+    const response = await fetch(url, {
+      next: { revalidate: isMarketOpen() ? 60 : 300 },
+    })
+
+    if (!response.ok) {
+      return {
+        success: false,
+        gainers: [],
+        losers: [],
+        mostActive: [],
+        error: createError('FETCH_FAILED', `HTTP ${response.status}`),
+      }
+    }
+
+    const data = await response.json()
+
+    if (!data.tickers || !Array.isArray(data.tickers)) {
+      return {
+        success: true,
+        gainers: [],
+        losers: [],
+        mostActive: [],
+      }
+    }
+
+    const movers: Mover[] = data.tickers.slice(0, 20).map((t: any) => ({
+      ticker: t.ticker,
+      price: t.day?.c || t.prevDay?.c || 0,
+      change: t.todaysChange || 0,
+      changePercent: t.todaysChangePerc || 0,
+      volume: t.day?.v || 0,
+      direction: (t.todaysChangePerc || 0) >= 0 ? 'up' : 'down',
+    }))
+
+    // Sort for most active by volume
+    const mostActive = [...movers].sort((a, b) => b.volume - a.volume).slice(0, 10)
+
+    return {
+      success: true,
+      gainers: direction === 'gainers' ? movers : [],
+      losers: direction === 'losers' ? movers : [],
+      mostActive,
+    }
+  } catch {
+    return {
+      success: false,
+      gainers: [],
+      losers: [],
+      mostActive: [],
+      error: createError('FETCH_FAILED', 'Failed to fetch movers'),
+    }
+  }
+}
+
+// Combined function to fetch both gainers and losers
+export async function fetchAllMovers(): Promise<MoversResponse> {
+  const [gainersRes, losersRes] = await Promise.all([
+    fetchMovers('gainers'),
+    fetchMovers('losers'),
+  ])
+
+  return {
+    success: gainersRes.success && losersRes.success,
+    gainers: gainersRes.gainers,
+    losers: losersRes.losers,
+    mostActive: gainersRes.mostActive.length > 0 ? gainersRes.mostActive : losersRes.mostActive,
+    error: gainersRes.error || losersRes.error,
+  }
+}
+
+// -----------------------------------------------------------------------------
+// API Functions - Risk On/Off Classifier
+// -----------------------------------------------------------------------------
+
+export async function classifyRiskRegime(): Promise<RiskRegimeResponse> {
+  const apiKey = getApiKey()
+
+  if (!apiKey) {
+    return {
+      success: false,
+      metrics: null,
+      error: createError('API_KEY_MISSING', 'API key is not configured'),
+    }
+  }
+
+  try {
+    // Fetch 63-day data for SPY, QQQ, IWM, VXX (VIX proxy)
+    const lookback = 63
+    const [spyBars, qqqBars, iwmBars, vxxBars] = await Promise.all([
+      fetchDailyBars('SPY', lookback),
+      fetchDailyBars('QQQ', lookback),
+      fetchDailyBars('IWM', lookback),
+      fetchDailyBars('VXX', lookback).catch(() => [] as DailyBar[]), // VXX may not be available
+    ])
+
+    if (spyBars.length < 21 || qqqBars.length < 21 || iwmBars.length < 21) {
+      return {
+        success: false,
+        metrics: null,
+        error: createError('INVALID_RESPONSE', 'Insufficient data for risk analysis'),
+      }
+    }
+
+    // Compute rolling high metrics
+    const spyMetrics = computeEnhancedMetrics([...spyBars].reverse(), 21, 'close')
+    const qqqMetrics = computeEnhancedMetrics([...qqqBars].reverse(), 21, 'close')
+    const iwmMetrics = computeEnhancedMetrics([...iwmBars].reverse(), 21, 'close')
+
+    const latestSpy = spyMetrics[spyMetrics.length - 1]
+    const latestQqq = qqqMetrics[qqqMetrics.length - 1]
+    const latestIwm = iwmMetrics[iwmMetrics.length - 1]
+
+    // Calculate trends
+    const classifyTrend = (pctFromHigh: number): 'bullish' | 'bearish' | 'neutral' => {
+      if (pctFromHigh < 2) return 'bullish'
+      if (pctFromHigh > 5) return 'bearish'
+      return 'neutral'
+    }
+
+    const spyTrend = classifyTrend(latestSpy.pctFromHigh)
+    const qqqTrend = classifyTrend(latestQqq.pctFromHigh)
+    const iwmTrend = classifyTrend(latestIwm.pctFromHigh)
+
+    // VIX level classification (using VXX as proxy)
+    let vixValue = 20 // Default if VXX not available
+    let vixLevel: RiskMetrics['signals']['vixLevel'] = 'low'
+
+    if (vxxBars.length > 0) {
+      vixValue = vxxBars[0].close // Most recent
+      if (vixValue < 15) vixLevel = 'low'
+      else if (vixValue < 20) vixLevel = 'elevated'
+      else if (vixValue < 30) vixLevel = 'high'
+      else vixLevel = 'extreme'
+    }
+
+    // QQQ vs IWM relative performance (growth vs value)
+    const qqqReturn = (qqqBars[0].close - qqqBars[qqqBars.length - 1].close) / qqqBars[qqqBars.length - 1].close * 100
+    const iwmReturn = (iwmBars[0].close - iwmBars[iwmBars.length - 1].close) / iwmBars[iwmBars.length - 1].close * 100
+    const qqqVsIwm = qqqReturn - iwmReturn
+
+    // Breadth signal (simplified - based on relative moves)
+    let breadth: RiskMetrics['signals']['breadth'] = 'mixed'
+    if (spyTrend === 'bullish' && (qqqTrend === 'bullish' || iwmTrend === 'bullish')) {
+      breadth = 'healthy'
+    } else if (spyTrend === 'bearish' && (qqqTrend === 'bearish' || iwmTrend === 'bearish')) {
+      breadth = 'poor'
+    }
+
+    // Determine regime
+    let regime: RiskRegime = 'neutral'
+    let confidence = 50
+
+    const bullishSignals = [
+      spyTrend === 'bullish',
+      qqqTrend === 'bullish',
+      iwmTrend === 'bullish',
+      vixLevel === 'low',
+      breadth === 'healthy',
+    ].filter(Boolean).length
+
+    const bearishSignals = [
+      spyTrend === 'bearish',
+      qqqTrend === 'bearish',
+      iwmTrend === 'bearish',
+      vixLevel === 'high' || vixLevel === 'extreme',
+      breadth === 'poor',
+    ].filter(Boolean).length
+
+    if (bullishSignals >= 4) {
+      regime = 'risk_on'
+      confidence = 70 + (bullishSignals - 4) * 10
+    } else if (bearishSignals >= 4) {
+      regime = 'risk_off'
+      confidence = 70 + (bearishSignals - 4) * 10
+    } else if (bullishSignals >= 3 && bearishSignals <= 1) {
+      regime = 'risk_on'
+      confidence = 60
+    } else if (bearishSignals >= 3 && bullishSignals <= 1) {
+      regime = 'risk_off'
+      confidence = 60
+    } else {
+      regime = 'mixed'
+      confidence = 50
+    }
+
+    return {
+      success: true,
+      metrics: {
+        regime,
+        confidence: Math.min(confidence, 95),
+        signals: {
+          spyTrend,
+          qqqTrend,
+          iwmTrend,
+          vixLevel,
+          breadth,
+        },
+        details: {
+          spyPctFromHigh: latestSpy.pctFromHigh,
+          qqqPctFromHigh: latestQqq.pctFromHigh,
+          iwmPctFromHigh: latestIwm.pctFromHigh,
+          vixValue,
+          qqqVsIwm,
+        },
+      },
+    }
+  } catch {
+    return {
+      success: false,
+      metrics: null,
+      error: createError('FETCH_FAILED', 'Failed to classify risk regime'),
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// API Functions - Relative Strength
+// -----------------------------------------------------------------------------
+
+export async function fetchRelativeStrength(
+  symbol: string,
+  lookback: number = 63
+): Promise<RelativeStrengthResponse> {
+  const apiKey = getApiKey()
+
+  if (!apiKey) {
+    return {
+      success: false,
+      metrics: null,
+      spyBars: [],
+      sectorBars: [],
+      symbolBars: [],
+      error: createError('API_KEY_MISSING', 'API key is not configured'),
+    }
+  }
+
+  try {
+    const normalizedSymbol = symbol.toUpperCase()
+    const sectorETF = STOCK_SECTOR_MAP[normalizedSymbol] || null
+
+    // Fetch bars for symbol, SPY, and sector ETF
+    const promises: Promise<DailyBar[]>[] = [
+      fetchDailyBars(normalizedSymbol, lookback),
+      fetchDailyBars('SPY', lookback),
+    ]
+
+    if (sectorETF) {
+      promises.push(fetchDailyBars(sectorETF, lookback))
+    }
+
+    const [symbolBars, spyBars, sectorBars = []] = await Promise.all(promises)
+
+    if (symbolBars.length < 21 || spyBars.length < 21) {
+      return {
+        success: false,
+        metrics: null,
+        spyBars: [],
+        sectorBars: [],
+        symbolBars: [],
+        error: createError('INVALID_RESPONSE', 'Insufficient data for relative strength'),
+      }
+    }
+
+    // Compute relative strength (performance ratio)
+    const symbolReturn = (symbolBars[0].close - symbolBars[symbolBars.length - 1].close) / symbolBars[symbolBars.length - 1].close * 100
+    const spyReturn = (spyBars[0].close - spyBars[spyBars.length - 1].close) / spyBars[spyBars.length - 1].close * 100
+    const vsSpyRS = symbolReturn - spyReturn
+
+    let vsSectorRS = 0
+    if (sectorBars.length >= 21) {
+      const sectorReturn = (sectorBars[0].close - sectorBars[sectorBars.length - 1].close) / sectorBars[sectorBars.length - 1].close * 100
+      vsSectorRS = symbolReturn - sectorReturn
+    }
+
+    // Calculate rolling correlation with SPY
+    const symbolReturns = computeReturns(symbolBars)
+    const spyReturns = computeReturns(spyBars)
+    const spyCorrelation = computeCorrelation(symbolReturns, spyReturns)
+
+    // Calculate beta
+    const beta = computeBeta(symbolReturns, spyReturns)
+
+    // RS Rating
+    let rsRating: RelativeStrengthMetrics['rsRating'] = 'inline'
+    if (vsSpyRS > 5) rsRating = 'leader'
+    else if (vsSpyRS < -5) rsRating = 'laggard'
+
+    return {
+      success: true,
+      metrics: {
+        symbol: normalizedSymbol,
+        vsSpyRS,
+        vsSectorRS,
+        sectorETF,
+        spyCorrelation,
+        beta,
+        rsRating,
+      },
+      spyBars,
+      sectorBars,
+      symbolBars,
+    }
+  } catch {
+    return {
+      success: false,
+      metrics: null,
+      spyBars: [],
+      sectorBars: [],
+      symbolBars: [],
+      error: createError('FETCH_FAILED', 'Failed to fetch relative strength'),
+    }
+  }
+}
+
+// Helper: compute daily returns
+function computeReturns(bars: DailyBar[]): number[] {
+  const returns: number[] = []
+  for (let i = 0; i < bars.length - 1; i++) {
+    returns.push((bars[i].close - bars[i + 1].close) / bars[i + 1].close)
+  }
+  return returns
+}
+
+// Helper: compute Pearson correlation
+function computeCorrelation(x: number[], y: number[]): number {
+  const n = Math.min(x.length, y.length)
+  if (n < 5) return 0
+
+  const xSlice = x.slice(0, n)
+  const ySlice = y.slice(0, n)
+
+  const xMean = xSlice.reduce((a, b) => a + b, 0) / n
+  const yMean = ySlice.reduce((a, b) => a + b, 0) / n
+
+  let numerator = 0
+  let xVar = 0
+  let yVar = 0
+
+  for (let i = 0; i < n; i++) {
+    const xDiff = xSlice[i] - xMean
+    const yDiff = ySlice[i] - yMean
+    numerator += xDiff * yDiff
+    xVar += xDiff * xDiff
+    yVar += yDiff * yDiff
+  }
+
+  const denominator = Math.sqrt(xVar * yVar)
+  return denominator === 0 ? 0 : numerator / denominator
+}
+
+// Helper: compute beta (covariance / variance)
+function computeBeta(stockReturns: number[], marketReturns: number[]): number {
+  const n = Math.min(stockReturns.length, marketReturns.length)
+  if (n < 5) return 1
+
+  const stockSlice = stockReturns.slice(0, n)
+  const marketSlice = marketReturns.slice(0, n)
+
+  const marketMean = marketSlice.reduce((a, b) => a + b, 0) / n
+  const stockMean = stockSlice.reduce((a, b) => a + b, 0) / n
+
+  let covariance = 0
+  let marketVariance = 0
+
+  for (let i = 0; i < n; i++) {
+    const marketDiff = marketSlice[i] - marketMean
+    covariance += (stockSlice[i] - stockMean) * marketDiff
+    marketVariance += marketDiff * marketDiff
+  }
+
+  return marketVariance === 0 ? 1 : covariance / marketVariance
+}
+
+// -----------------------------------------------------------------------------
+// API Functions - Health Check
+// -----------------------------------------------------------------------------
+
+export interface HealthCheckResult {
+  status: 'healthy' | 'degraded' | 'unhealthy'
+  timestamp: string
+  checks: {
+    apiKey: { ok: boolean; message: string }
+    marketStatus: { ok: boolean; message: string; phase?: MarketPhase }
+    sampleSnapshot: { ok: boolean; message: string; latencyMs?: number }
+  }
+  version: string
+}
+
+export async function performHealthCheck(): Promise<HealthCheckResult> {
+  const timestamp = new Date().toISOString()
+  const version = process.env.npm_package_version || '1.0.0'
+
+  const checks: HealthCheckResult['checks'] = {
+    apiKey: { ok: false, message: 'Not configured' },
+    marketStatus: { ok: false, message: 'Unknown' },
+    sampleSnapshot: { ok: false, message: 'Not tested' },
+  }
+
+  // Check API key
+  const apiKey = getApiKey()
+  if (apiKey) {
+    checks.apiKey = { ok: true, message: 'Configured' }
+  }
+
+  // Check market status
+  try {
+    const statusResult = await fetchMarketStatus()
+    if (statusResult.success && statusResult.status) {
+      checks.marketStatus = {
+        ok: true,
+        message: `NYSE: ${statusResult.status.exchanges.nyse}`,
+        phase: statusResult.status.exchanges.nyse,
+      }
+    } else {
+      checks.marketStatus = {
+        ok: false,
+        message: statusResult.error?.message || 'Failed to fetch',
+      }
+    }
+  } catch {
+    checks.marketStatus = { ok: false, message: 'Exception thrown' }
+  }
+
+  // Sample snapshot test
+  if (apiKey) {
+    try {
+      const start = Date.now()
+      const snapshotResult = await fetchUniversalSnapshot({
+        symbols: ['SPY'],
+        assetClass: 'stocks',
+      })
+      const latencyMs = Date.now() - start
+
+      if (snapshotResult.success && snapshotResult.results.length > 0) {
+        checks.sampleSnapshot = {
+          ok: true,
+          message: `SPY snapshot OK`,
+          latencyMs,
+        }
+      } else {
+        checks.sampleSnapshot = {
+          ok: false,
+          message: snapshotResult.error?.message || 'Empty result',
+          latencyMs,
+        }
+      }
+    } catch {
+      checks.sampleSnapshot = { ok: false, message: 'Exception thrown' }
+    }
+  }
+
+  // Determine overall status
+  const allOk = Object.values(checks).every((c) => c.ok)
+  const someOk = Object.values(checks).some((c) => c.ok)
+
+  return {
+    status: allOk ? 'healthy' : someOk ? 'degraded' : 'unhealthy',
+    timestamp,
+    checks,
+    version,
+  }
 }
 
 // -----------------------------------------------------------------------------

@@ -9,7 +9,9 @@
     "dev": "next dev",
     "postinstall": "prisma generate",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.9",
@@ -81,6 +83,7 @@
     "prisma": "7.2.0",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.16"
   }
 }

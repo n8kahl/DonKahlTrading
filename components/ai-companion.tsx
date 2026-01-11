@@ -14,7 +14,9 @@ import {
   Maximize2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAI } from '@/components/ai-provider'
+import { useAI, type Message, type ToolResult } from '@/components/ai-provider'
+import { renderResult } from '@/components/ai-cards/renderer-registry'
+import type { PinConfig } from '@/components/ai-cards/types'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -42,54 +44,105 @@ interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  toolResults?: ToolResult[]
+}
+
+// -----------------------------------------------------------------------------
+// Tool Result Card Component
+// -----------------------------------------------------------------------------
+
+function ToolResultCard({
+  result,
+  onPin,
+}: {
+  result: ToolResult
+  onPin?: (config: PinConfig) => void
+}) {
+  const rendered = renderResult(result.result, onPin)
+
+  if (!rendered) {
+    return null
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="w-full mt-2"
+    >
+      {rendered}
+    </motion.div>
+  )
 }
 
 // -----------------------------------------------------------------------------
 // Message Bubble Component
 // -----------------------------------------------------------------------------
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  onPin,
+}: {
+  message: ChatMessage
+  onPin?: (config: PinConfig) => void
+}) {
   const isUser = message.role === 'user'
+  const hasToolResults = message.toolResults && message.toolResults.length > 0
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
-      className={cn('flex gap-2 max-w-[85%]', isUser ? 'ml-auto flex-row-reverse' : 'mr-auto')}
-    >
-      {/* Avatar */}
-      <div
-        className={cn(
-          'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center',
-          isUser
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-white/10 text-white border border-white/20'
-        )}
-      >
-        {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
-      </div>
-
-      {/* Message Content */}
-      <div
-        className={cn(
-          'rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
-          isUser
-            ? 'bg-primary text-primary-foreground rounded-tr-sm'
-            : 'bg-white/10 backdrop-blur-sm text-white border border-white/10 rounded-tl-sm'
-        )}
-      >
-        <p className="font-sans whitespace-pre-wrap">{message.content}</p>
-        <p
-          className={cn(
-            'text-[10px] mt-1.5 font-mono',
-            isUser ? 'text-primary-foreground/60' : 'text-white/40'
-          )}
+    <div className="space-y-2">
+      {/* Text Message */}
+      {message.content && (
+        <motion.div
+          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className={cn('flex gap-2 max-w-[85%]', isUser ? 'ml-auto flex-row-reverse' : 'mr-auto')}
         >
-          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </p>
-      </div>
-    </motion.div>
+          {/* Avatar */}
+          <div
+            className={cn(
+              'flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center',
+              isUser
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-white/10 text-white border border-white/20'
+            )}
+          >
+            {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+          </div>
+
+          {/* Message Content */}
+          <div
+            className={cn(
+              'rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+              isUser
+                ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                : 'bg-white/10 backdrop-blur-sm text-white border border-white/10 rounded-tl-sm'
+            )}
+          >
+            <p className="font-sans whitespace-pre-wrap">{message.content}</p>
+            <p
+              className={cn(
+                'text-[10px] mt-1.5 font-mono',
+                isUser ? 'text-primary-foreground/60' : 'text-white/40'
+              )}
+            >
+              {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Tool Results - Rendered as Cards */}
+      {hasToolResults && (
+        <div className="space-y-3 ml-9">
+          {message.toolResults!.map((result) => (
+            <ToolResultCard key={result.toolCallId} result={result} onPin={onPin} />
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -205,6 +258,7 @@ function ChatContent({
   setInput,
   handleSend,
   handleClear,
+  handlePin,
   scrollRef,
 }: {
   messages: ChatMessage[]
@@ -213,6 +267,7 @@ function ChatContent({
   setInput: (v: string) => void
   handleSend: () => void
   handleClear: () => void
+  handlePin: (config: PinConfig) => void
   scrollRef: React.RefObject<HTMLDivElement | null>
 }) {
   return (
@@ -271,7 +326,7 @@ function ChatContent({
           ) : (
             <>
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
+                <MessageBubble key={msg.id} message={msg} onPin={handlePin} />
               ))}
               <AnimatePresence>{isLoading && <TypingIndicator />}</AnimatePresence>
             </>
@@ -422,11 +477,12 @@ export function AICompanion() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Convert AI messages to chat format
-  const messages: ChatMessage[] = aiMessages.map((m) => ({
+  const messages: ChatMessage[] = aiMessages.map((m: Message) => ({
     id: m.id,
     role: m.role as 'user' | 'assistant',
     content: m.content,
     timestamp: new Date(),
+    toolResults: m.toolResults,
   }))
 
   // Auto-scroll to bottom on new messages
@@ -447,6 +503,17 @@ export function AICompanion() {
     clearMessages()
   }, [clearMessages])
 
+  const handlePin = useCallback((config: PinConfig) => {
+    // TODO: Implement pin to dashboard
+    // This will be connected to the main dashboard state
+    console.log('Pin requested:', config)
+
+    // For now, store in localStorage as a placeholder
+    const pinnedCards = JSON.parse(localStorage.getItem('pinnedCards') || '[]')
+    pinnedCards.push(config)
+    localStorage.setItem('pinnedCards', JSON.stringify(pinnedCards))
+  }, [])
+
   const toggleOpen = useCallback(() => {
     setIsOpen((prev) => !prev)
     if (isMinimized) setIsMinimized(false)
@@ -460,6 +527,7 @@ export function AICompanion() {
       setInput={setInput}
       handleSend={handleSend}
       handleClear={handleClear}
+      handlePin={handlePin}
       scrollRef={scrollRef}
     />
   )

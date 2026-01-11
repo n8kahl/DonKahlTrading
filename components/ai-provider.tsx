@@ -1,11 +1,24 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
-import type { Message } from '@/app/action'
+import type { ResultEnvelope } from '@/components/ai-cards/types'
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
+
+export interface ToolResult {
+  toolCallId: string
+  toolName: string
+  result: ResultEnvelope
+}
+
+export interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  toolResults?: ToolResult[]
+}
 
 interface AIContextValue {
   messages: Message[]
@@ -61,15 +74,18 @@ export function AIProvider({ children }: { children: ReactNode }) {
         throw new Error('No response body')
       }
 
-      // Handle streaming response
+      // Handle streaming response with tool results
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let assistantContent = ''
+      const toolResults: ToolResult[] = []
+      const pendingToolCalls: Map<string, string> = new Map() // toolCallId -> toolName
 
       const assistantMessage: Message = {
         id: `assistant_${Date.now()}`,
         role: 'assistant',
         content: '',
+        toolResults: [],
       }
       setMessages((prev) => [...prev, assistantMessage])
 
@@ -81,24 +97,77 @@ export function AIProvider({ children }: { children: ReactNode }) {
         const lines = chunk.split('\n')
 
         for (const line of lines) {
+          if (!line.trim()) continue
+
+          // Text content: 0:"text"
           if (line.startsWith('0:')) {
-            // Text content
             try {
               const text = JSON.parse(line.slice(2))
               assistantContent += text
               setMessages((prev) =>
                 prev.map((msg) =>
                   msg.id === assistantMessage.id
-                    ? { ...msg, content: assistantContent }
+                    ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
                     : msg
                 )
               )
             } catch {
-              // Ignore parse errors for non-JSON chunks
+              // Ignore parse errors
+            }
+          }
+
+          // Tool call start: 9:{...}
+          if (line.startsWith('9:')) {
+            try {
+              const toolCall = JSON.parse(line.slice(2))
+              if (toolCall.toolCallId && toolCall.toolName) {
+                pendingToolCalls.set(toolCall.toolCallId, toolCall.toolName)
+              }
+            } catch {
+              // Ignore parse errors
+            }
+          }
+
+          // Tool result: a:{...}
+          if (line.startsWith('a:')) {
+            try {
+              const resultData = JSON.parse(line.slice(2))
+              // resultData format: [{toolCallId, result}]
+              if (Array.isArray(resultData)) {
+                for (const item of resultData) {
+                  if (item.toolCallId && item.result) {
+                    const toolName = pendingToolCalls.get(item.toolCallId) || 'unknown'
+                    toolResults.push({
+                      toolCallId: item.toolCallId,
+                      toolName,
+                      result: item.result as ResultEnvelope,
+                    })
+                  }
+                }
+              }
+              // Update message with tool results
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessage.id
+                    ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
+                    : msg
+                )
+              )
+            } catch {
+              // Ignore parse errors
             }
           }
         }
       }
+
+      // Final update
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessage.id
+            ? { ...msg, content: assistantContent, toolResults: [...toolResults] }
+            : msg
+        )
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send message')
     } finally {

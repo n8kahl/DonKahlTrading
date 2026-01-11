@@ -1,3 +1,8 @@
+// =============================================================================
+// Tucson Trader - Prisma Schema
+// PostgreSQL database for Railway deployment
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,11 +11,99 @@ datasource db {
   provider = "postgresql"
 }
 
+// =============================================================================
+// Shared Dashboard Links
+// =============================================================================
+
 model Dashboard {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  config    String   // JSON: { symbols, lookback, basis, days }
-  results   String   // JSON: { dates, data }
+  updatedAt DateTime @updatedAt
 
+  // Dashboard configuration (JSON stringified)
+  // { symbols: string[], lookback: number, basis: 'close' | 'intraday', days: number }
+  config String
+
+  // Dashboard results (JSON stringified)
+  // { dates: string[], data: Record<string, number[]> }
+  results String
+
+  // Optional metadata
+  title       String?
+  description String?
+
+  // Access tracking
+  viewCount    Int       @default(0)
+  lastViewedAt DateTime?
+
+  @@index([createdAt])
   @@map("dashboards")
+}
+
+// =============================================================================
+// Pinned Cards (from AI Companion)
+// =============================================================================
+
+model PinnedCard {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Card type from AI tools
+  type String // 'market_dashboard' | 'options_chain' | 'pulse' | 'heatmap' | 'breadth'
+
+  // Display title
+  title String
+
+  // Card configuration (JSON stringified)
+  config String
+
+  // Position on dashboard
+  position Int @default(0)
+
+  // Active status
+  active Boolean @default(true)
+
+  @@index([active, position])
+  @@map("pinned_cards")
+}
+
+// =============================================================================
+// API Rate Limiting (persistent, for production)
+// =============================================================================
+
+model RateLimitEntry {
+  id          String   @id @default(cuid())
+  key         String   @unique // IP:endpoint combination
+  count       Int      @default(0)
+  windowStart DateTime
+
+  @@index([key, windowStart])
+  @@map("rate_limits")
+}
+
+// =============================================================================
+// User Preferences (future)
+// =============================================================================
+
+model UserPreferences {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // User identifier (from auth when implemented)
+  userId String @unique
+
+  // Default symbols for dashboard
+  defaultSymbols String @default("SPY,QQQ,IWM,VIX")
+
+  // UI preferences
+  defaultLookback Int     @default(63)
+  defaultBasis    String  @default("close")
+  darkMode        Boolean @default(true)
+
+  // Notification preferences
+  alertsEnabled Boolean @default(false)
+
+  @@map("user_preferences")
 }
