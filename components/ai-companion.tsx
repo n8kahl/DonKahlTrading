@@ -232,15 +232,15 @@ function CommandBarInput({
             disabled={disabled || !value.trim()}
             size="sm"
             className={cn(
-              'h-10 w-10 rounded-lg bg-primary hover:bg-primary/90',
+              'h-12 w-12 sm:h-10 sm:w-10 rounded-lg bg-primary hover:bg-primary/90 active:bg-primary/80',
               'disabled:opacity-30 disabled:cursor-not-allowed',
               'transition-all duration-200'
             )}
           >
             {disabled ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 sm:w-4 sm:h-4 animate-spin" />
             ) : (
-              <Send className="w-4 h-4" />
+              <Send className="w-5 h-5 sm:w-4 sm:h-4" />
             )}
           </Button>
         </div>
@@ -305,31 +305,31 @@ function ChatContent({
             variant="ghost"
             size="icon"
             onClick={handleExport}
-            className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+            className="h-10 w-10 sm:h-8 sm:w-8 text-white/50 hover:text-white hover:bg-white/10 active:bg-white/20"
             disabled={messages.length === 0}
             title="Export as JSON"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleShare}
-            className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+            className="h-10 w-10 sm:h-8 sm:w-8 text-white/50 hover:text-white hover:bg-white/10 active:bg-white/20"
             disabled={messages.length === 0 || isSharing}
             title="Share chat link"
           >
-            {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+            {isSharing ? <Loader2 className="w-5 h-5 sm:w-4 sm:h-4 animate-spin" /> : <Share2 className="w-5 h-5 sm:w-4 sm:h-4" />}
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleClear}
-            className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10"
+            className="h-10 w-10 sm:h-8 sm:w-8 text-white/50 hover:text-white hover:bg-white/10 active:bg-white/20"
             disabled={messages.length === 0}
             title="Clear chat"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
         </div>
       </div>
@@ -388,8 +388,8 @@ function ChatContent({
         </div>
       </ScrollArea>
 
-      {/* Input */}
-      <div className="p-4 border-t border-white/10">
+      {/* Input - with safe area padding on mobile */}
+      <div className="p-4 border-t border-white/10 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <CommandBarInput
           value={input}
           onChange={setInput}
@@ -674,19 +674,21 @@ export function AICompanion() {
   if (isMobile) {
     return (
       <>
-        {/* Launcher */}
-        <div className="fixed bottom-4 right-4 z-50">
+        {/* Launcher - positioned above safe area */}
+        <div className="fixed bottom-6 right-4 z-50 pb-[env(safe-area-inset-bottom)]">
           <LauncherButton onClick={toggleOpen} isOpen={isOpen} />
         </div>
 
         {/* Drawer */}
         <Drawer open={isOpen} onOpenChange={setIsOpen}>
-          <DrawerContent className="h-[85vh] bg-black/90 backdrop-blur-xl border-white/10">
+          <DrawerContent className="h-[90vh] max-h-[90vh] bg-black/95 backdrop-blur-xl border-white/10">
             <DrawerHeader className="sr-only">
               <DrawerTitle>Trading Copilot</DrawerTitle>
               <DrawerDescription>AI-powered market analysis</DrawerDescription>
             </DrawerHeader>
-            {chatContent}
+            <div className="flex flex-col h-full pb-[env(safe-area-inset-bottom)]">
+              {chatContent}
+            </div>
           </DrawerContent>
         </Drawer>
       </>

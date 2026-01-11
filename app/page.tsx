@@ -166,9 +166,9 @@ export default function DashboardPage() {
                 disabled={isSharing || !data}
                 size="sm"
                 variant="outline"
-                className="h-8"
+                className="h-10 sm:h-8 px-3"
               >
-                <Share2 className="h-3.5 w-3.5 sm:mr-1.5" />
+                <Share2 className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
                 <span className="hidden sm:inline text-xs">Share</span>
               </Button>
             </div>

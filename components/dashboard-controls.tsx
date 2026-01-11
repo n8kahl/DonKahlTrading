@@ -97,7 +97,7 @@ export function DashboardControls({
   return (
     <div className="border-b border-border bg-muted/50">
       {/* Primary Controls Row */}
-      <div className="px-4 py-3 flex flex-wrap items-center gap-3">
+      <div className="px-4 py-3 flex flex-wrap items-center gap-2 sm:gap-3">
         {/* Universe Toggle */}
         <Tabs
           value={config.universe}
@@ -155,19 +155,19 @@ export function DashboardControls({
           </div>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 w-20 font-mono text-xs">
+              <Button variant="outline" size="sm" className="h-10 sm:h-8 w-20 font-mono text-xs">
                 {config.lookback}d
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-48 p-2" align="start">
+            <PopoverContent className="w-56 sm:w-48 p-3 sm:p-2" align="start">
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-1">
+                <div className="grid grid-cols-2 gap-2 sm:gap-1">
                   {LOOKBACK_PRESETS.map((preset) => (
                     <Button
                       key={preset.value}
                       variant={config.lookback === preset.value ? "default" : "outline"}
                       size="sm"
-                      className="h-7 text-xs"
+                      className="h-10 sm:h-7 text-xs"
                       onClick={() => onConfigChange({ ...config, lookback: preset.value })}
                     >
                       {preset.label}
@@ -219,7 +219,7 @@ export function DashboardControls({
             onValueChange={(value: "close" | "intraday") => onConfigChange({ ...config, basis: value })}
             disabled={disabled}
           >
-            <SelectTrigger className="h-8 w-24 text-xs">
+            <SelectTrigger className="h-10 sm:h-8 w-28 sm:w-24 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
