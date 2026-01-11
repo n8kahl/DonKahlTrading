@@ -38,7 +38,17 @@ export async function GET(request: NextRequest) {
   const basis = (searchParams.get("basis") || "close") as "close" | "intraday"
   const days = Number.parseInt(searchParams.get("days") || "30")
 
-  const symbols = symbolsParam.split(",").map((s) => s.trim().toUpperCase())
+  const symbols = symbolsParam
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s.length > 0)
+
+  if (symbols.length === 0) {
+    return NextResponse.json(
+      { error: "No valid symbols provided" },
+      { status: 400 }
+    )
+  }
 
   if (!process.env.MASSIVE_API_KEY) {
     return NextResponse.json({ error: "MASSIVE_API_KEY not configured" }, { status: 500 })

@@ -326,6 +326,11 @@ export function TraderSummaryBar({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
             )}
+            {lastUpdated && (
+              <span className="text-[10px] text-muted-foreground font-mono">
+                {new Date(lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </div>
 
           <div className="h-4 w-px bg-border" />

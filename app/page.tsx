@@ -37,7 +37,14 @@ const staggerContainer = {
   },
 }
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const fetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ error: 'Request failed' }))
+    throw new Error(errorData.error || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
 
 export default function DashboardPage() {
   const [config, setConfig] = useState<DashboardConfig>({

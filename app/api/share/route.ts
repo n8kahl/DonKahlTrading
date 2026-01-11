@@ -1,6 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+
+// Maximum payload size: 500KB
+const MAX_PAYLOAD_SIZE = 500 * 1024
 
 export async function POST(request: NextRequest) {
+  // Rate limit check
+  const rateLimit = withRateLimit(request, RATE_LIMITS.heavy)
+  if (rateLimit.response) {
+    return rateLimit.response
+  }
+
   // Check if database is configured
   if (!process.env.DATABASE_URL) {
     return NextResponse.json(
@@ -16,10 +26,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { config, results } = body
 
+    // Check payload size
+    const resultsStr = JSON.stringify(results)
+    if (resultsStr.length > MAX_PAYLOAD_SIZE) {
+      return NextResponse.json(
+        { error: "Share data too large. Reduce the number of symbols or days." },
+        { status: 413 }
+      )
+    }
+
     const dashboard = await prisma.dashboard.create({
       data: {
         config: JSON.stringify(config),
-        results: JSON.stringify(results),
+        results: resultsStr,
       },
     })
 
