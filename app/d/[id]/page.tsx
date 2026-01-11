@@ -154,10 +154,14 @@ export default function SharedDashboardPage({ params }: { params: Promise<{ id: 
               <EnhancedHeatmapTable
                 dates={dashboard.results.dates}
                 data={dashboard.results.data}
+                basisHigh={dashboard.results.basisHigh}
+                basisClose={dashboard.results.basisClose}
                 rawBars={dashboard.results.rawBars || {}}
                 lookback={dashboard.config.lookback}
                 metric={dashboard.config.metric}
                 sortBy={dashboard.config.sortBy}
+                currentBasis={dashboard.config.basis}
+                sanity={dashboard.results.sanity}
               />
             </div>
 

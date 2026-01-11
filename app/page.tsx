@@ -211,10 +211,14 @@ export default function DashboardPage() {
                     <EnhancedHeatmapTable
                       dates={data.dates}
                       data={data.data}
+                      basisHigh={data.basisHigh}
+                      basisClose={data.basisClose}
                       rawBars={data.rawBars}
                       lookback={config.lookback}
                       metric={config.metric}
                       sortBy={config.sortBy}
+                      currentBasis={config.basis}
+                      sanity={data.sanity}
                     />
                   </div>
 
