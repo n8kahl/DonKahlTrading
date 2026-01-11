@@ -109,7 +109,7 @@ function DivergenceItem({
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        'flex items-start gap-3 px-3 py-3 rounded-md border',
+        'flex items-start gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-3 rounded-md border',
         'bg-gradient-to-r from-transparent to-muted/30',
         confidenceConfig.borderClass
       )}
@@ -229,10 +229,10 @@ export function DivergenceSpotlight({
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-purple-500" />
-          <h3 className="text-sm font-semibold">Divergence Spotlight</h3>
+          <h3 className="text-xs sm:text-sm font-semibold">Divergence Spotlight</h3>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -261,7 +261,7 @@ export function DivergenceSpotlight({
       </div>
 
       {/* Content */}
-      <div className="p-3">
+      <div className="p-2 sm:p-3">
         {hasDivergences ? (
           <div className="space-y-2">
             <AnimatePresence mode="popLayout">

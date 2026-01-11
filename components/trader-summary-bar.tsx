@@ -312,11 +312,11 @@ export function TraderSummaryBar({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="bg-card border border-border rounded-lg px-4 py-3"
+      className="bg-card border border-border rounded-lg px-3 sm:px-4 py-2 sm:py-3"
     >
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
         {/* Left: Regime + Breadth */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Market status indicator */}
           <div className="flex items-center gap-2">
             <Activity className="w-3.5 h-3.5 text-muted-foreground" />

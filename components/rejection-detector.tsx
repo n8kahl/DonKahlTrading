@@ -98,7 +98,7 @@ function RejectionItem({
       exit={{ opacity: 0, x: 10 }}
       transition={{ duration: 0.15 }}
       className={cn(
-        'flex items-center justify-between gap-3 px-3 py-2 rounded-md border',
+        'flex items-center justify-between gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-md border',
         'transition-colors duration-150',
         severityConfig.bgClass,
         severityConfig.borderClass,
@@ -247,10 +247,10 @@ export function RejectionDetector({
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-500" />
-          <h3 className="text-sm font-semibold">Rejection Detector</h3>
+          <h3 className="text-xs sm:text-sm font-semibold">Rejection Detector</h3>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -305,7 +305,7 @@ export function RejectionDetector({
       </div>
 
       {/* Content */}
-      <div className="p-3 space-y-2">
+      <div className="p-2 sm:p-3 space-y-2">
         {/* Today's rejections */}
         <AnimatePresence mode="popLayout">
           {latestRejections.map((rejection) => (
