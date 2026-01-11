@@ -67,7 +67,17 @@ export function AIProvider({ children }: { children: ReactNode }) {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        // Try to get the actual error message from the response body
+        let errorMessage = `HTTP error! status: ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch {
+          // Ignore JSON parse errors, use default message
+        }
+        throw new Error(errorMessage)
       }
 
       if (!response.body) {
