@@ -66,15 +66,19 @@ export default function DashboardPage() {
         body: JSON.stringify({ config, results: data }),
       })
 
-      if (!response.ok) throw new Error("Failed to create share link")
+      const result = await response.json()
 
-      const { id } = await response.json()
-      const shareUrl = `${window.location.origin}/d/${id}`
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create share link")
+      }
+
+      const shareUrl = `${window.location.origin}/d/${result.id}`
 
       await navigator.clipboard.writeText(shareUrl)
       alert(`Share link copied to clipboard:\n${shareUrl}`)
     } catch (err) {
-      alert("Failed to create share link")
+      const message = err instanceof Error ? err.message : "Failed to create share link"
+      alert(message)
     } finally {
       setIsSharing(false)
     }

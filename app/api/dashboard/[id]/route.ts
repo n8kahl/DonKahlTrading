@@ -1,8 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json(
+      { error: "Database not configured" },
+      { status: 503 }
+    )
+  }
+
   try {
+    const { prisma } = await import("@/lib/prisma")
     const { id } = await params
     const dashboard = await prisma.dashboard.findUnique({
       where: { id },
@@ -20,6 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     })
   } catch (error) {
     console.error("Error fetching dashboard:", error)
-    return NextResponse.json({ error: "Failed to fetch dashboard" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Failed to fetch dashboard"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

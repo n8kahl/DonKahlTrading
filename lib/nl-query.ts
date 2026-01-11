@@ -19,6 +19,7 @@ import {
   normalizeSymbol,
   type DailyBar,
   type IntradayBar,
+  type IntradayInterval,
   type OptionSnapshot,
   type UniversalSnapshotItem,
   type IndexSnapshotItem,
@@ -528,13 +529,15 @@ async function executeIntradayBars(
 ): Promise<{ data: IntradayBarsResult }> {
   const normalizedTickers = normalizeTickers(plan.symbols)
   const bars: Record<string, IntradayBar[]> = {}
+  // Default to '5m' if granularity is '1d' (daily should use executeDailyBars instead)
+  const interval: IntradayInterval = plan.granularity === '1d' ? '5m' : plan.granularity
 
   const chunks = chunkArray(normalizedTickers, SAFETY_LIMITS.maxConcurrency)
 
   for (const chunk of chunks) {
     const results = await Promise.allSettled(
       chunk.map(async (ticker) => {
-        const response = await fetchIntradayBars(ticker.normalized, plan.granularity)
+        const response = await fetchIntradayBars(ticker.normalized, interval)
         return { ticker, response }
       })
     )

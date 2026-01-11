@@ -1560,7 +1560,7 @@ export async function fetchSectorPerformance(): Promise<SectorPerformanceRespons
 
     const spyChangePercent = spySnapshot.session.change_percent
 
-    const sectors: SectorPerformance[] = sectorSymbols
+    const sectors = sectorSymbols
       .map((symbol) => {
         const snapshot = snapshots.get(symbol)
         if (!snapshot?.session) return null
@@ -1574,14 +1574,14 @@ export async function fetchSectorPerformance(): Promise<SectorPerformanceRespons
 
         return {
           symbol: symbol as SectorETF,
-          name: SECTOR_ETFS[symbol as SectorETF],
+          name: SECTOR_ETFS[symbol as SectorETF] as string,
           price: snapshot.session.close,
           change: snapshot.session.change,
           changePercent,
           volume: snapshot.session.volume,
           relativeStrength,
           signal,
-        }
+        } satisfies SectorPerformance
       })
       .filter((s): s is SectorPerformance => s !== null)
       .sort((a, b) => b.relativeStrength - a.relativeStrength)

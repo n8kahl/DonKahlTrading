@@ -1,8 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
 
 export async function POST(request: NextRequest) {
+  // Check if database is configured
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json(
+      { error: "Share feature requires database configuration. Please set DATABASE_URL." },
+      { status: 503 }
+    )
+  }
+
   try {
+    // Dynamic import to avoid build-time errors
+    const { prisma } = await import("@/lib/prisma")
+
     const body = await request.json()
     const { config, results } = body
 
@@ -16,6 +26,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: dashboard.id })
   } catch (error) {
     console.error("Error creating dashboard:", error)
-    return NextResponse.json({ error: "Failed to create dashboard" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Failed to create dashboard"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
