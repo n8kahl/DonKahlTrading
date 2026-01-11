@@ -5,6 +5,8 @@ import { getHeatLegend, type LegendItem } from '@/lib/heat/colors'
 interface HeatLegendProps {
   /** Which metric type to show legend for */
   metricType: 'high' | 'low' | 'both'
+  /** Whether showing days metric (true) or percentage (false) */
+  isDays?: boolean
   /** Compact mode for smaller displays */
   compact?: boolean
 }
@@ -30,14 +32,16 @@ function LegendSection({ items, label }: { items: LegendItem[]; label: string })
   )
 }
 
-export function HeatLegend({ metricType, compact = false }: HeatLegendProps) {
-  const highLegend = getHeatLegend('high')
-  const lowLegend = getHeatLegend('low')
+export function HeatLegend({ metricType, isDays = true, compact = false }: HeatLegendProps) {
+  const highLegend = getHeatLegend('high', isDays)
+  const lowLegend = getHeatLegend('low', isDays)
 
   if (compact) {
     // Compact single-line legend
     const items = metricType === 'low' ? lowLegend : highLegend
-    const label = metricType === 'low' ? 'Near Lows' : 'Near Highs'
+    const label = metricType === 'low'
+      ? (isDays ? 'Days from Low' : '% from Low')
+      : (isDays ? 'Days from High' : '% from High')
 
     return (
       <div className="flex items-center gap-1.5">
@@ -64,10 +68,16 @@ export function HeatLegend({ metricType, compact = false }: HeatLegendProps) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-4 px-4 py-2 border-t border-border bg-muted/30">
       {(metricType === 'high' || metricType === 'both') && (
-        <LegendSection items={highLegend} label="Near High" />
+        <LegendSection
+          items={highLegend}
+          label={isDays ? "Days from High" : "% from High"}
+        />
       )}
       {(metricType === 'low' || metricType === 'both') && (
-        <LegendSection items={lowLegend} label="Near Low" />
+        <LegendSection
+          items={lowLegend}
+          label={isDays ? "Days from Low" : "% from Low"}
+        />
       )}
     </div>
   )

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react"
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Button } from "@/components/ui/button"
-import type { HeatmapMetrics } from "@/lib/massive-api"
-import { DrilldownSheet } from "./drilldown-sheet"
-import { getHeatStyle, type HeatMetric } from "@/lib/heat/colors"
+import type { HeatmapMetrics, DailyBar } from "@/lib/massive-api"
+import { CellDrilldown } from "./cell-drilldown"
+import { getHeatStyle, detectSignal, getSignalBorderStyle, type HeatMetric } from "@/lib/heat/colors"
 import {
   Columns2,
   ArrowUp,
@@ -25,18 +25,14 @@ type ViewMode = "single" | "dual" | "delta"
 
 interface EnhancedHeatmapTableProps {
   dates: string[]
-  // Both basis data (for dual view)
   basisHigh?: Record<string, HeatmapMetrics[]>
   basisClose?: Record<string, HeatmapMetrics[]>
-  // Legacy single-basis data (backward compat)
   data: Record<string, HeatmapMetrics[]>
-  rawBars: Record<string, any[]>
+  rawBars: Record<string, DailyBar[]>
   lookback: number
   metric: "pctFromHigh" | "daysSinceHigh" | "pctFromLow" | "daysSinceLow"
   sortBy?: string
-  // Currently selected basis from controls (for single mode)
   currentBasis?: "close" | "intraday"
-  // Sanity check data
   sanity?: {
     staleSymbols: string[]
     constantDays: string[]
@@ -157,6 +153,10 @@ function InfoTooltip() {
               <span className="font-medium text-foreground">Delta:</span> Shows (Close - High) days to detect
               breakout rejections. Positive = touched high but closed lower.
             </p>
+            <div className="pt-2 border-t border-border space-y-1">
+              <p><span className="inline-block w-3 h-3 rounded-sm border-2 border-green-500 mr-1" /> Confirmed breakout</p>
+              <p><span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-500 mr-1" /> Rejected breakout</p>
+            </div>
           </div>
         </TooltipContent>
       </Tooltip>
@@ -164,20 +164,33 @@ function InfoTooltip() {
   )
 }
 
-// Heat cell with animation
-function HeatCell({
-  metrics,
-  metric,
-  lookback,
-  isDelta = false,
-  deltaValue = 0,
-}: {
+// =============================================================================
+// Memoized Heat Cell
+// =============================================================================
+
+interface HeatCellProps {
   metrics?: HeatmapMetrics
+  highMetrics?: HeatmapMetrics
+  closeMetrics?: HeatmapMetrics
   metric: "pctFromHigh" | "daysSinceHigh" | "pctFromLow" | "daysSinceLow"
   lookback: number
   isDelta?: boolean
   deltaValue?: number
-}) {
+  isRecent?: boolean  // Last 10 rows for signal borders
+  onClick?: () => void
+}
+
+const HeatCell = memo(function HeatCell({
+  metrics,
+  highMetrics,
+  closeMetrics,
+  metric,
+  lookback,
+  isDelta = false,
+  deltaValue = 0,
+  isRecent = false,
+  onClick,
+}: HeatCellProps) {
   if (!metrics && !isDelta) {
     return (
       <td className="border-b border-border px-3 py-2 text-center text-muted-foreground/50">
@@ -188,10 +201,6 @@ function HeatCell({
 
   // Delta mode styling
   if (isDelta) {
-    // Delta = closeDays - highDays
-    // Positive = close took longer to reach high (rejection signal)
-    // Zero = confirmed breakout
-    // Negative = anomaly (shouldn't happen often)
     const intensity = Math.min(Math.abs(deltaValue) / 10, 1)
     const isRejection = deltaValue > 0
     const isConfirmed = deltaValue === 0
@@ -200,32 +209,39 @@ function HeatCell({
     let textColor = "var(--muted-foreground)"
 
     if (isConfirmed) {
-      bgColor = "oklch(0.55 0.15 160)" // Bright teal for confirmed
+      bgColor = "oklch(0.55 0.15 160)"
       textColor = "#ffffff"
     } else if (isRejection && intensity > 0.3) {
-      bgColor = `oklch(${0.45 + intensity * 0.1} ${intensity * 0.15} 35)` // Amber/orange
+      bgColor = `oklch(${0.45 + intensity * 0.1} ${intensity * 0.15} 35)`
       textColor = intensity > 0.5 ? "#ffffff" : "var(--foreground)"
     }
 
     return (
-      <motion.td
-        layout
-        initial={{ opacity: 0.5 }}
-        animate={{ opacity: 1, backgroundColor: bgColor, color: textColor }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
+      <td
+        onClick={onClick}
+        style={{ backgroundColor: bgColor, color: textColor }}
         className={cn(
           "border-b border-border/50 px-3 py-2 text-center font-mono text-xs tabular-nums",
-          isConfirmed && "font-semibold"
+          "transition-all duration-200 ease-out",
+          isConfirmed && "font-semibold",
+          onClick && "cursor-pointer hover:brightness-110"
         )}
       >
         {deltaValue > 0 ? "+" : ""}{deltaValue}
-      </motion.td>
+      </td>
     )
   }
 
   // Regular cell
   const value = metrics![metric]
   const style = getHeatStyle({ metric: metric as HeatMetric, value, lookback })
+
+  // Signal detection (only for recent rows and days metrics)
+  let signalStyle: ReturnType<typeof getSignalBorderStyle> = null
+  if (isRecent && metric.includes("days") && highMetrics && closeMetrics) {
+    const signal = detectSignal(highMetrics.daysSinceHigh, closeMetrics.daysSinceHigh)
+    signalStyle = getSignalBorderStyle(signal.type)
+  }
 
   const getDisplayValue = () => {
     switch (metric) {
@@ -241,25 +257,31 @@ function HeatCell({
   }
 
   return (
-    <motion.td
-      layout
-      initial={{ opacity: 0.5 }}
-      animate={{
-        opacity: 1,
+    <td
+      onClick={onClick}
+      style={{
         backgroundColor: style.bg,
         color: style.fg,
+        borderColor: signalStyle?.borderColor,
+        borderWidth: signalStyle?.borderWidth,
+        borderStyle: signalStyle?.borderStyle as any,
       }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
       className={cn(
-        "border-b border-border/50 px-3 py-2 text-center font-mono text-xs tabular-nums cursor-pointer",
-        "hover:brightness-110",
-        style.intensity > 0.5 && "font-semibold"
+        "border-b border-border/50 px-3 py-2 text-center font-mono text-xs tabular-nums",
+        "transition-all duration-200 ease-out",
+        style.intensity > 0.5 && "font-semibold",
+        onClick && "cursor-pointer hover:brightness-110",
+        signalStyle?.cornerDot && "relative"
       )}
     >
       {getDisplayValue()}
-    </motion.td>
+      {/* Corner dot for confirmed breakouts */}
+      {signalStyle?.cornerDot && (
+        <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-green-400" />
+      )}
+    </td>
   )
-}
+})
 
 // =============================================================================
 // Main Component
@@ -279,8 +301,16 @@ export function EnhancedHeatmapTable({
 }: EnhancedHeatmapTableProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("single")
   const [mounted, setMounted] = useState(false)
-  const [drilldownSymbol, setDrilldownSymbol] = useState<string | null>(null)
-  const [drilldownDateIndex, setDrilldownDateIndex] = useState<number | null>(null)
+  const [drilldownOpen, setDrilldownOpen] = useState(false)
+  const [drilldownData, setDrilldownData] = useState<{
+    symbol: string
+    date: string
+    dateIndex: number
+    metrics: HeatmapMetrics
+    highMetrics?: HeatmapMetrics
+    closeMetrics?: HeatmapMetrics
+    bars: DailyBar[]
+  } | null>(null)
 
   // Refs for scroll sync in dual mode
   const highTableRef = useRef<HTMLDivElement>(null)
@@ -313,7 +343,7 @@ export function EnhancedHeatmapTable({
   const highData = basisHigh || data
   const closeData = basisClose || data
 
-  // Get sorted symbols
+  // Get sorted symbols - memoized
   const symbols = useMemo(() => {
     let syms = Object.keys(data)
     const isHighMetric = metric.includes("High")
@@ -345,10 +375,25 @@ export function EnhancedHeatmapTable({
     return syms
   }, [data, dates.length, metric, sortBy])
 
-  const handleCellClick = (symbol: string, dateIndex: number) => {
-    setDrilldownSymbol(symbol)
-    setDrilldownDateIndex(dateIndex)
-  }
+  const handleCellClick = useCallback((
+    symbol: string,
+    dateIndex: number,
+    tableData: Record<string, HeatmapMetrics[]>
+  ) => {
+    const metrics = tableData[symbol]?.[dateIndex]
+    if (!metrics) return
+
+    setDrilldownData({
+      symbol,
+      date: dates[dateIndex],
+      dateIndex,
+      metrics,
+      highMetrics: highData[symbol]?.[dateIndex],
+      closeMetrics: closeData[symbol]?.[dateIndex],
+      bars: rawBars[symbol] || [],
+    })
+    setDrilldownOpen(true)
+  }, [dates, highData, closeData, rawBars])
 
   // Don't render until mounted (avoid hydration issues)
   if (!mounted) {
@@ -364,7 +409,7 @@ export function EnhancedHeatmapTable({
     tableData: Record<string, HeatmapMetrics[]>,
     label: string,
     labelColor: string,
-    tableRef?: React.RefObject<HTMLDivElement>,
+    tableRef?: React.RefObject<HTMLDivElement | null>,
     onScroll?: () => void
   ) => (
     <div
@@ -397,24 +442,31 @@ export function EnhancedHeatmapTable({
           </tr>
         </thead>
         <tbody>
-          {dates.map((date, dateIndex) => (
-            <tr key={date} className="hover:bg-muted/50 transition-colors">
-              <td className="sticky left-0 z-10 bg-card border-b border-r border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                {date}
-              </td>
-              {symbols.map((symbol) => {
-                const metrics = tableData[symbol]?.[dateIndex]
-                return (
-                  <HeatCell
-                    key={symbol}
-                    metrics={metrics}
-                    metric={metric}
-                    lookback={lookback}
-                  />
-                )
-              })}
-            </tr>
-          ))}
+          {dates.map((date, dateIndex) => {
+            const isRecent = dateIndex >= dates.length - 10
+            return (
+              <tr key={date} className="hover:bg-muted/50 transition-colors">
+                <td className="sticky left-0 z-10 bg-card border-b border-r border-border px-3 py-2 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                  {date}
+                </td>
+                {symbols.map((symbol) => {
+                  const metrics = tableData[symbol]?.[dateIndex]
+                  return (
+                    <HeatCell
+                      key={symbol}
+                      metrics={metrics}
+                      highMetrics={highData[symbol]?.[dateIndex]}
+                      closeMetrics={closeData[symbol]?.[dateIndex]}
+                      metric={metric}
+                      lookback={lookback}
+                      isRecent={isRecent}
+                      onClick={() => handleCellClick(symbol, dateIndex, tableData)}
+                    />
+                  )
+                })}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -457,7 +509,6 @@ export function EnhancedHeatmapTable({
                   )
                 }
 
-                // Delta = Close days - High days
                 const deltaValue = closeMetrics.daysSinceHigh - highMetrics.daysSinceHigh
 
                 return (
@@ -467,6 +518,7 @@ export function EnhancedHeatmapTable({
                     lookback={lookback}
                     isDelta
                     deltaValue={deltaValue}
+                    onClick={() => handleCellClick(symbol, dateIndex, closeData)}
                   />
                 )
               })}
@@ -598,17 +650,18 @@ export function EnhancedHeatmapTable({
         </LayoutGroup>
       </TooltipProvider>
 
-      {/* Drilldown Sheet */}
-      {drilldownSymbol && drilldownDateIndex !== null && (
-        <DrilldownSheet
-          symbol={drilldownSymbol}
-          date={dates[drilldownDateIndex]}
-          bars={rawBars[drilldownSymbol] || []}
+      {/* Cell Drilldown */}
+      {drilldownData && (
+        <CellDrilldown
+          open={drilldownOpen}
+          onOpenChange={setDrilldownOpen}
+          symbol={drilldownData.symbol}
+          date={drilldownData.date}
+          metrics={drilldownData.metrics}
+          highMetrics={drilldownData.highMetrics}
+          closeMetrics={drilldownData.closeMetrics}
+          bars={drilldownData.bars}
           lookback={lookback}
-          onClose={() => {
-            setDrilldownSymbol(null)
-            setDrilldownDateIndex(null)
-          }}
         />
       )}
     </>

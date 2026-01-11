@@ -93,6 +93,7 @@ export default function DashboardPage() {
 
   // Determine legend type based on metric
   const legendType = config.metric.includes("High") ? "high" : "low"
+  const isDaysMetric = config.metric.includes("days")
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -230,7 +231,7 @@ export default function DashboardPage() {
 
                   {/* Legend */}
                   <div className="mt-3 flex items-center justify-between">
-                    <HeatLegend metricType={legendType} compact />
+                    <HeatLegend metricType={legendType} isDays={isDaysMetric} compact />
                     <span className="text-xs text-muted-foreground">
                       Click any cell for details
                     </span>
