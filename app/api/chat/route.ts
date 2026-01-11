@@ -20,8 +20,8 @@ export const dynamic = 'force-dynamic'
 function getModel() {
   // Prefer Anthropic for complex financial data analysis
   if (process.env.ANTHROPIC_API_KEY) {
-    // Use Claude 3.5 Sonnet - explicit model ID for reliability
-    return anthropic('claude-3-5-sonnet-20241022')
+    // Use Claude Sonnet 4 - latest stable model
+    return anthropic('claude-sonnet-4-20250514')
   }
   // Fallback to OpenAI
   return openai('gpt-4-turbo')

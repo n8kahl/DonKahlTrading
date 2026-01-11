@@ -8,7 +8,7 @@ echo "🌵 Tucson Trader - Starting up..."
 # Run Prisma db push if DATABASE_URL is set
 if [ -n "$DATABASE_URL" ]; then
   echo "📦 Running database migrations..."
-  npx prisma db push --skip-generate 2>&1
+  npx prisma db push 2>&1
   if [ $? -eq 0 ]; then
     echo "✅ Database migrations complete"
   else
