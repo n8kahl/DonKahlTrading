@@ -20,7 +20,8 @@ export const dynamic = 'force-dynamic'
 function getModel() {
   // Prefer Anthropic for complex financial data analysis
   if (process.env.ANTHROPIC_API_KEY) {
-    return anthropic('claude-sonnet-4-20250514')
+    // Use Claude 3.5 Sonnet - reliable and capable for financial analysis
+    return anthropic('claude-3-5-sonnet-latest')
   }
   // Fallback to OpenAI
   return openai('gpt-4-turbo')
@@ -233,6 +234,8 @@ export async function POST(req: Request) {
 
   try {
     const { messages } = await req.json()
+    console.log('[Chat API] Processing request with', messages.length, 'messages')
+    console.log('[Chat API] Using Anthropic:', !!process.env.ANTHROPIC_API_KEY)
 
     const result = streamText({
       model: getModel(),
@@ -428,9 +431,11 @@ export async function POST(req: Request) {
 
     return result.toTextStreamResponse()
   } catch (error) {
-    console.error('Chat API error:', error)
+    console.error('[Chat API] Error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[Chat API] Error details:', errorMessage)
     return new Response(
-      JSON.stringify({ error: 'Failed to process chat request' }),
+      JSON.stringify({ error: `Chat error: ${errorMessage}` }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
