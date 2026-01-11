@@ -251,6 +251,42 @@ const GUARDRAILS = {
   defaultLookback: 63,
 }
 
+// -----------------------------------------------------------------------------
+// Error Message Formatter
+// -----------------------------------------------------------------------------
+
+/**
+ * Convert technical errors to user-friendly messages.
+ */
+function formatUserFriendlyError(error: Error | string): string {
+  const message = error instanceof Error ? error.message : error
+
+  // Common error patterns and their friendly versions
+  const errorMappings: Array<[RegExp | string, string]> = [
+    [/Invalid time value/i, 'Market data temporarily unavailable. The API returned incomplete data.'],
+    [/fetch failed/i, 'Unable to connect to market data provider. Please try again.'],
+    [/network error/i, 'Network connection issue. Check your internet and try again.'],
+    [/rate limit/i, 'Too many requests. Please wait a moment and try again.'],
+    [/unauthorized|401/i, 'API authentication issue. Please check your API key configuration.'],
+    [/not found|404/i, 'No data found for the requested symbol(s).'],
+    [/timeout/i, 'Request timed out. The market data provider may be slow.'],
+    [/ECONNREFUSED/i, 'Unable to reach market data provider.'],
+    [/Invalid symbol/i, 'One or more symbols are invalid. Please check the ticker symbols.'],
+  ]
+
+  for (const [pattern, friendly] of errorMappings) {
+    if (typeof pattern === 'string' ? message.includes(pattern) : pattern.test(message)) {
+      return friendly
+    }
+  }
+
+  // If no pattern matches, clean up the technical jargon
+  return message
+    .replace(/Error:/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim() || 'An unexpected error occurred. Please try again.'
+}
+
 // Trader defaults: always include context
 const CONTEXT_SYMBOLS = ['SPY', 'QQQ', 'IWM', 'DIA']
 
@@ -309,8 +345,8 @@ export async function executePlan(plan: QueryPlan): Promise<ResultEnvelope[]> {
   } catch (error) {
     results.push({
       type: 'error',
-      title: 'Query Execution Failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      title: 'Data Unavailable',
+      message: formatUserFriendlyError(error instanceof Error ? error : String(error)),
       meta: {
         code: 'EXECUTION_ERROR',
         recoverable: true,

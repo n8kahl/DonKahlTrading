@@ -87,16 +87,27 @@ export interface NormalizedMarketStatus {
 // -----------------------------------------------------------------------------
 
 /**
+ * Check if a timestamp produces a valid Date.
+ */
+function isValidTimestamp(t: unknown): t is number {
+  if (typeof t !== 'number' || !Number.isFinite(t)) return false
+  const date = new Date(t)
+  return !isNaN(date.getTime())
+}
+
+/**
  * Normalize aggregates (OHLCV bars) response.
  * Ensures ascending chronological order and consistent field names.
+ * Filters out any bars with invalid timestamps to prevent crashes.
  */
 export function normalizeAggregates(
   response: z.infer<typeof AggregatesResponseSchema>
 ): NormalizedBar[] {
   const results = response.results || []
 
-  // Map and sort by timestamp (ascending)
+  // Map and sort by timestamp (ascending), filtering invalid timestamps
   const bars = results
+    .filter((bar) => isValidTimestamp(bar.t))
     .map((bar) => ({
       date: new Date(bar.t).toISOString().split('T')[0],
       timestamp: bar.t,
@@ -111,6 +122,15 @@ export function normalizeAggregates(
     .sort((a, b) => a.timestamp - b.timestamp)
 
   return bars
+}
+
+/**
+ * Safely convert a value to ISO string, with fallback.
+ */
+function safeToISOString(value: unknown): string {
+  if (!value) return new Date().toISOString()
+  const date = new Date(value as number | string)
+  return isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString()
 }
 
 /**
@@ -138,7 +158,7 @@ export function normalizeSnapshot(
     volume: day?.v ?? 0,
     vwap: day?.vw ?? null,
     previousClose: prevDay?.c ?? 0,
-    updatedAt: t.updated ? new Date(t.updated).toISOString() : new Date().toISOString(),
+    updatedAt: safeToISOString(t.updated),
     isDelayed: false, // Polygon doesn't flag this directly; assume real-time for paid plans
   }
 }
@@ -168,7 +188,7 @@ export function normalizeSnapshotAll(
         volume: day?.v ?? 0,
         vwap: day?.vw ?? null,
         previousClose: prevDay?.c ?? 0,
-        updatedAt: t.updated ? new Date(t.updated).toISOString() : new Date().toISOString(),
+        updatedAt: safeToISOString(t.updated),
         isDelayed: false,
       }
     })
@@ -257,7 +277,13 @@ export function normalizeMarketStatus(
 // -----------------------------------------------------------------------------
 
 export function isDataDelayed(updatedAt: string | number, maxAgeMs = 900000): boolean {
-  const updated = typeof updatedAt === 'number' ? updatedAt : new Date(updatedAt).getTime()
+  let updated: number
+  if (typeof updatedAt === 'number') {
+    updated = updatedAt
+  } else {
+    const date = new Date(updatedAt)
+    updated = isNaN(date.getTime()) ? Date.now() : date.getTime()
+  }
   const age = Date.now() - updated
   return age > maxAgeMs
 }
