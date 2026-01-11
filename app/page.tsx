@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import useSWR from "swr"
 import { motion, AnimatePresence } from "framer-motion"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -15,12 +15,26 @@ import { MarketExtremesPanel } from "@/components/market-extremes-panel"
 import { EnhancedHeatmapTable } from "@/components/enhanced-heatmap-table"
 import { AICompanion } from "@/components/ai-companion"
 import { ThemeToggle } from "@/components/theme-toggle"
+// Trader Layer components
+import { TraderSummaryBar } from "@/components/trader-summary-bar"
+import { RejectionDetector } from "@/components/rejection-detector"
+import { DivergenceSpotlight } from "@/components/divergence-spotlight"
+import { SymbolDrillSheet } from "@/components/symbol-drill-sheet"
+import type { HeatmapMetrics, DailyBar } from "@/lib/massive-api"
 
 // Animation variants for smooth transitions
 const fadeSlide = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -8 },
+}
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -50,6 +64,10 @@ export default function DashboardPage() {
 
   const [isSharing, setIsSharing] = useState(false)
   const [mounted, setMounted] = useState(false)
+
+  // Drill sheet state
+  const [drillSymbol, setDrillSymbol] = useState<string | null>(null)
+  const [drillSheetOpen, setDrillSheetOpen] = useState(false)
 
   // Avoid hydration mismatch for timestamps
   useEffect(() => {
@@ -85,10 +103,29 @@ export default function DashboardPage() {
     }
   }
 
+  // Drill-down handlers
+  const handleViewChart = useCallback((symbol: string) => {
+    setDrillSymbol(symbol)
+    setDrillSheetOpen(true)
+  }, [])
+
+  const handlePin = useCallback((symbol: string) => {
+    // Stub for pin functionality
+    console.log('Pin symbol:', symbol)
+    // TODO: Implement pin to dashboard
+  }, [])
+
   // Compute date range from data
   const dataDateRange = data?.dates?.length
     ? { from: data.dates[0], to: data.dates[data.dates.length - 1] }
     : undefined
+
+  // Get drill sheet data
+  const drillSheetData = drillSymbol && data ? {
+    bars: data.rawBars?.[drillSymbol] || [],
+    metricsHigh: data.basisHigh?.[drillSymbol]?.[data.dates.length - 1],
+    metricsClose: data.basisClose?.[drillSymbol]?.[data.dates.length - 1],
+  } : null
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -163,7 +200,7 @@ export default function DashboardPage() {
           </div>
         ) : data ? (
           <div className="relative">
-            {/* Loading overlay */}
+            {/* Loading overlay - non-blocking */}
             <AnimatePresence>
               {isValidating && (
                 <motion.div
@@ -171,7 +208,7 @@ export default function DashboardPage() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute inset-0 z-20 flex items-start justify-center pt-16 bg-background/60 backdrop-blur-[1px]"
+                  className="absolute top-4 right-4 z-20"
                 >
                   <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-card border border-border shadow-sm">
                     <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -181,9 +218,55 @@ export default function DashboardPage() {
               )}
             </AnimatePresence>
 
+            {/* Trader Summary Bar - Always visible above heatmaps */}
+            {data.basisHigh && data.basisClose && data.dates && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                className="px-4 pt-4"
+              >
+                <TraderSummaryBar
+                  basisHigh={data.basisHigh}
+                  basisClose={data.basisClose}
+                  dates={data.dates}
+                  lookback={config.lookback}
+                  marketOpen={true}
+                  lastUpdated={data.meta?.lastUpdated}
+                />
+              </motion.div>
+            )}
+
+            {/* Rejection Detector + Divergence Spotlight Grid */}
+            {data.basisHigh && data.basisClose && data.dates && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2, delay: 0.1 }}
+                className="px-4 pt-4"
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <RejectionDetector
+                    basisHigh={data.basisHigh}
+                    basisClose={data.basisClose}
+                    dates={data.dates}
+                    rawBars={data.rawBars}
+                    onViewChart={handleViewChart}
+                    onPin={handlePin}
+                  />
+                  <DivergenceSpotlight
+                    basisClose={data.basisClose}
+                    dates={data.dates}
+                    onViewChart={handleViewChart}
+                    onPin={handlePin}
+                  />
+                </div>
+              </motion.div>
+            )}
+
             {/* Stats Bar */}
             {data.data && Object.keys(data.data).length > 0 && (
-              <div className="border-b border-border bg-muted/30">
+              <div className="mt-4 border-y border-border bg-muted/30">
                 <StatsBar data={data.data} lookback={config.lookback} />
               </div>
             )}
@@ -239,6 +322,20 @@ export default function DashboardPage() {
 
       {/* AI Companion */}
       <AICompanion />
+
+      {/* Symbol Drill Sheet */}
+      {drillSymbol && drillSheetData && (
+        <SymbolDrillSheet
+          open={drillSheetOpen}
+          onOpenChange={setDrillSheetOpen}
+          symbol={drillSymbol}
+          bars={drillSheetData.bars}
+          metricsHigh={drillSheetData.metricsHigh}
+          metricsClose={drillSheetData.metricsClose}
+          lookback={config.lookback}
+          onPin={handlePin}
+        />
+      )}
     </div>
   )
 }
