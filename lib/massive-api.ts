@@ -1253,8 +1253,8 @@ export function computeEnhancedMetrics(
     const startIdx = Math.max(0, i - lookback + 1)
     const window = bars.slice(startIdx, i + 1)
 
-    const rollingHigh = Math.max(...window.map((b) => b.high))
-    const rollingLow = Math.min(...window.map((b) => b.low))
+    const rollingHigh = Math.max(...window.map((b) => basis === 'close' ? b.close : b.high))
+    const rollingLow = Math.min(...window.map((b) => basis === 'close' ? b.close : b.low))
 
     const currentValue = basis === 'close' ? bars[i].close : bars[i].high
     const currentLowValue = basis === 'close' ? bars[i].close : bars[i].low
