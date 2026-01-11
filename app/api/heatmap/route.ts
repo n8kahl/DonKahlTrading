@@ -33,15 +33,14 @@ export async function GET(request: NextRequest) {
       const symbol = symbols[index]
 
       if (result.status === "fulfilled" && result.value.length > 0) {
-        // Bars arrive in descending order (most recent first)
-        // Reverse to chronological for proper rolling window computation
-        const allBarsChronological = [...result.value].reverse()
+        // Bars arrive in ascending chronological order (oldest to newest)
+        const allBars = result.value
 
         // Compute heatmap on full dataset (has lookback + days + buffer)
-        const allHeatmapValues = computeHeatmap(allBarsChronological, lookback, basis)
+        const allHeatmapValues = computeHeatmap(allBars, lookback, basis)
 
         // Slice last `days` for response
-        const displayBars = allBarsChronological.slice(-days)
+        const displayBars = allBars.slice(-days)
         const displayValues = allHeatmapValues.slice(-days)
 
         if (dates.length === 0) {

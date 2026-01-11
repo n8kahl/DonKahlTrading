@@ -206,6 +206,65 @@ describe('computeEnhancedMetrics', () => {
   })
 })
 
+describe('Data ordering requirements', () => {
+  /**
+   * Helper to assert bars are in ascending chronological order
+   * This validates the contract that fetchDailyBars must return
+   */
+  function assertAscendingOrder(bars: DailyBar[]): void {
+    for (let i = 1; i < bars.length; i++) {
+      const prevDate = new Date(bars[i - 1].date).getTime()
+      const currDate = new Date(bars[i].date).getTime()
+      expect(currDate).toBeGreaterThan(prevDate)
+    }
+  }
+
+  it('synthetic bars are in ascending chronological order', () => {
+    const bars = createSyntheticBars(30)
+    assertAscendingOrder(bars)
+  })
+
+  it('bars with peak are in ascending chronological order', () => {
+    const bars = createBarsWithPeak(20, 10)
+    assertAscendingOrder(bars)
+  })
+
+  it('computeHeatmap requires ascending order for correct results', () => {
+    // Create ascending bars with peak at index 10
+    const ascendingBars = createBarsWithPeak(20, 10)
+    const resultAsc = computeHeatmap(ascendingBars, 10, 'close')
+
+    // At index 19, peak at 10 is 9 days ago
+    expect(resultAsc[19]).toBe(9)
+
+    // Reverse to descending order (wrong!)
+    const descendingBars = [...ascendingBars].reverse()
+    const resultDesc = computeHeatmap(descendingBars, 10, 'close')
+
+    // Results would be wrong - peak would appear at different relative position
+    // This demonstrates why ascending order is critical
+    expect(resultDesc[19]).not.toBe(9)
+  })
+
+  it('computeEnhancedMetrics produces different results with wrong order', () => {
+    // Create ascending bars with peak at index 5 (close=150, high=151)
+    // Use peak at index 5 so window positions differ more clearly
+    const ascendingBars = createBarsWithPeak(20, 5)
+    const metricsAsc = computeEnhancedMetrics(ascendingBars, 10, 'close')
+
+    // At index 10, window is 1-10, peak at 5 is IN window
+    expect(metricsAsc[10].rollingHigh).toBe(151)
+
+    // Descending order: peak at original index 5 becomes index 14
+    const descendingBars = [...ascendingBars].reverse()
+    const metricsDesc = computeEnhancedMetrics(descendingBars, 10, 'close')
+
+    // At index 10 in descending, window is 1-10
+    // Peak is at index 14 (out of window), so rollingHigh is 101 (non-peak bars)
+    expect(metricsDesc[10].rollingHigh).toBe(101)
+  })
+})
+
 describe('Rolling window edge cases', () => {
   it('handles single bar', () => {
     const bars: DailyBar[] = [

@@ -27,15 +27,14 @@ export async function GET(request: NextRequest) {
       const symbol = symbols[index]
 
       if (result.status === "fulfilled" && result.value.length > 0) {
-        // Bars arrive in descending order (most recent first)
-        // Reverse to chronological for proper rolling window computation
-        const allBarsChronological = [...result.value].reverse()
+        // Bars arrive in ascending chronological order (oldest to newest)
+        const allBars = result.value
 
         // Compute metrics on full dataset (has lookback + days + buffer)
-        const allMetrics = computeEnhancedMetrics(allBarsChronological, lookback, basis)
+        const allMetrics = computeEnhancedMetrics(allBars, lookback, basis)
 
         // Slice last `days` bars and metrics for response
-        const displayBars = allBarsChronological.slice(-days)
+        const displayBars = allBars.slice(-days)
         const displayMetrics = allMetrics.slice(-days)
 
         if (dates.length === 0) {

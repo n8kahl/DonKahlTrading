@@ -1191,7 +1191,7 @@ export async function fetchDailyBars(symbol: string, days = 252): Promise<DailyB
   const toStr = formatDate(toDate)
 
   try {
-    const url = `${BASE_URL}/v2/aggs/ticker/${normalizedSymbol}/range/1/day/${fromStr}/${toStr}?adjusted=true&sort=desc&limit=50000&apiKey=${apiKey}`
+    const url = `${BASE_URL}/v2/aggs/ticker/${normalizedSymbol}/range/1/day/${fromStr}/${toStr}?adjusted=true&sort=asc&limit=50000&apiKey=${apiKey}`
 
     const response = await fetch(url, {
       next: { revalidate: getCacheRevalidation() },
@@ -1218,7 +1218,8 @@ export async function fetchDailyBars(symbol: string, days = 252): Promise<DailyB
       volume: bar.v || 0,
     }))
 
-    return bars.slice(0, days)
+    // Return most recent N bars (ascending order - oldest to newest)
+    return bars.slice(-days)
   } catch (error) {
     console.error(`[API] Error fetching ${symbol}:`, error instanceof Error ? error.message : 'Unknown error')
     throw error

@@ -3,6 +3,8 @@
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import type { DailyBar } from '@/lib/massive-api'
+import { getHeatStyle } from '@/lib/heat/colors'
+import { HeatLegend } from './heat-legend'
 
 // -----------------------------------------------------------------------------
 // Types
@@ -94,28 +96,11 @@ function calculateExtremesData(
 }
 
 // -----------------------------------------------------------------------------
-// Heatmap Styling (Reverse Logic)
+// Heatmap Styling (using shared color system)
 // -----------------------------------------------------------------------------
 
-function getHeatmapStyle(days: number): string {
-  // 0 Days (New High) = Hot Red
-  if (days === 0) {
-    return 'bg-red-600 text-white font-bold'
-  }
-  // 1-3 Days = Warm Red
-  if (days <= 3) {
-    return 'bg-red-900/50 text-red-200 font-semibold'
-  }
-  // 4-7 Days = Fading
-  if (days <= 7) {
-    return 'bg-red-900/30 text-red-300/80'
-  }
-  // 8-10 Days = Almost Gone
-  if (days <= 10) {
-    return 'bg-red-900/15 text-red-400/60'
-  }
-  // >10 Days = Transparent/Cold
-  return 'text-muted-foreground/60'
+function getCellHeatStyle(days: number, lookback: number) {
+  return getHeatStyle({ metric: 'daysSinceHigh', value: days, lookback })
 }
 
 // -----------------------------------------------------------------------------
@@ -222,30 +207,46 @@ export function MarketExtremesTable({ rawBars, lookback = 63 }: MarketExtremesTa
                 Days Since {lookback}d High
               </td>
               {/* HIGH Basis Values */}
-              {extremesData.map((data, idx) => (
-                <td
-                  key={`high-val-${data.symbol}`}
-                  className={cn(
-                    'px-3 py-3 text-center font-mono text-sm tabular-nums transition-colors',
-                    getHeatmapStyle(data.daysSinceHighBasis),
-                    idx === extremesData.length - 1 ? 'border-r border-border' : ''
-                  )}
-                >
-                  {data.daysSinceHighBasis}
-                </td>
-              ))}
+              {extremesData.map((data, idx) => {
+                const style = getCellHeatStyle(data.daysSinceHighBasis, lookback)
+                return (
+                  <td
+                    key={`high-val-${data.symbol}`}
+                    className={cn(
+                      'px-3 py-3 text-center font-mono text-sm tabular-nums',
+                      style.intensity > 0.5 ? 'font-semibold' : '',
+                      idx === extremesData.length - 1 ? 'border-r border-border' : ''
+                    )}
+                    style={{
+                      backgroundColor: style.bg,
+                      color: style.fg,
+                      transition: 'background-color 0.3s ease, color 0.3s ease',
+                    }}
+                  >
+                    {data.daysSinceHighBasis}
+                  </td>
+                )
+              })}
               {/* CLOSE Basis Values */}
-              {extremesData.map((data) => (
-                <td
-                  key={`close-val-${data.symbol}`}
-                  className={cn(
-                    'px-3 py-3 text-center font-mono text-sm tabular-nums transition-colors',
-                    getHeatmapStyle(data.daysSinceCloseBasis)
-                  )}
-                >
-                  {data.daysSinceCloseBasis}
-                </td>
-              ))}
+              {extremesData.map((data) => {
+                const style = getCellHeatStyle(data.daysSinceCloseBasis, lookback)
+                return (
+                  <td
+                    key={`close-val-${data.symbol}`}
+                    className={cn(
+                      'px-3 py-3 text-center font-mono text-sm tabular-nums',
+                      style.intensity > 0.5 ? 'font-semibold' : ''
+                    )}
+                    style={{
+                      backgroundColor: style.bg,
+                      color: style.fg,
+                      transition: 'background-color 0.3s ease, color 0.3s ease',
+                    }}
+                  >
+                    {data.daysSinceCloseBasis}
+                  </td>
+                )
+              })}
             </tr>
 
             {/* Current Value Row */}
@@ -364,27 +365,7 @@ export function MarketExtremesTable({ rawBars, lookback = 63 }: MarketExtremesTa
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-end gap-4 px-4 py-2 border-t border-border bg-muted/30">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Legend:</span>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-red-600" />
-            <span className="text-[10px] text-muted-foreground">New High (0d)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-red-900/50" />
-            <span className="text-[10px] text-muted-foreground">1-3d</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-red-900/20" />
-            <span className="text-[10px] text-muted-foreground">4-10d</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm border border-border" />
-            <span className="text-[10px] text-muted-foreground">&gt;10d</span>
-          </div>
-        </div>
-      </div>
+      <HeatLegend metricType="high" />
     </div>
   )
 }

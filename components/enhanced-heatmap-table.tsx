@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import type { HeatmapMetrics } from "@/lib/massive-api"
 import { DrilldownSheet } from "./drilldown-sheet"
+import { HeatLegend } from "./heat-legend"
+import { getHeatStyle, type HeatMetric } from "@/lib/heat/colors"
 
 interface EnhancedHeatmapTableProps {
   dates: string[]
@@ -54,69 +56,14 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
     }
   }
 
-  // Arizona-themed heatmap colors
-  const getHeatmapColor = (metrics: HeatmapMetrics) => {
-    let intensity = 0
-
-    switch (metric) {
-      case "pctFromHigh":
-        intensity = 1 - Math.min(metrics.pctFromHigh / 10, 1)
-        break
-      case "daysSinceHigh":
-        intensity = 1 - metrics.daysSinceHigh / lookback
-        break
-      case "pctFromLow":
-        intensity = 1 - Math.min(metrics.pctFromLow / 10, 1)
-        break
-      case "daysSinceLow":
-        intensity = 1 - metrics.daysSinceLow / lookback
-        break
-    }
-
-    // Arizona-themed colors: copper/terracotta for lows, turquoise/sage for highs
-    if (metric.includes("High")) {
-      // Turquoise to sage gradient for highs (good = close to high)
-      if (intensity > 0.8) {
-        return `oklch(0.65 0.14 195 / ${0.7 + intensity * 0.3})` // Bright turquoise
-      } else if (intensity > 0.5) {
-        return `oklch(0.55 0.10 175 / ${0.5 + intensity * 0.3})` // Teal
-      } else if (intensity > 0.2) {
-        return `oklch(0.45 0.06 160 / ${0.3 + intensity * 0.2})` // Sage
-      }
-      return `oklch(0.25 0.02 160 / 0.2)` // Muted
-    } else {
-      // Copper to sunset for lows (good = close to low means buy opportunity)
-      if (intensity > 0.8) {
-        return `oklch(0.65 0.20 30 / ${0.7 + intensity * 0.3})` // Bright sunset
-      } else if (intensity > 0.5) {
-        return `oklch(0.55 0.18 45 / ${0.5 + intensity * 0.3})` // Copper
-      } else if (intensity > 0.2) {
-        return `oklch(0.45 0.12 50 / ${0.3 + intensity * 0.2})` // Terracotta
-      }
-      return `oklch(0.25 0.05 50 / 0.2)` // Muted
-    }
+  // Get heat style using shared color system
+  const getCellStyle = (metrics: HeatmapMetrics) => {
+    const value = metrics[metric]
+    return getHeatStyle({ metric: metric as HeatMetric, value, lookback })
   }
 
-  const getTextColor = (metrics: HeatmapMetrics) => {
-    let intensity = 0
-
-    switch (metric) {
-      case "pctFromHigh":
-        intensity = 1 - Math.min(metrics.pctFromHigh / 10, 1)
-        break
-      case "daysSinceHigh":
-        intensity = 1 - metrics.daysSinceHigh / lookback
-        break
-      case "pctFromLow":
-        intensity = 1 - Math.min(metrics.pctFromLow / 10, 1)
-        break
-      case "daysSinceLow":
-        intensity = 1 - metrics.daysSinceLow / lookback
-        break
-    }
-
-    return intensity > 0.5 ? "text-white font-semibold" : "text-foreground/80"
-  }
+  // Determine legend type based on current metric
+  const legendType = metric.includes("High") ? "high" : "low"
 
   const handleCellClick = (symbol: string, dateIndex: number) => {
     setDrilldownSymbol(symbol)
@@ -162,17 +109,20 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
                       )
                     }
 
+                    const style = getCellStyle(metrics)
                     return (
                       <Tooltip key={symbol}>
                         <TooltipTrigger asChild>
                           <td
                             className={cn(
                               "border-b border-border/50 px-3 py-2 text-center font-mono text-xs tabular-nums cursor-pointer",
-                              "transition-colors hover:brightness-110",
-                              getTextColor(metrics)
+                              "hover:brightness-110",
+                              style.intensity > 0.5 ? "font-semibold" : ""
                             )}
                             style={{
-                              backgroundColor: getHeatmapColor(metrics),
+                              backgroundColor: style.bg,
+                              color: style.fg,
+                              transition: "background-color 0.3s ease, color 0.3s ease",
                             }}
                             onClick={() => handleCellClick(symbol, dateIndex)}
                           >
@@ -220,6 +170,7 @@ export function EnhancedHeatmapTable({ dates, data, rawBars, lookback, metric, s
               ))}
             </tbody>
           </table>
+          <HeatLegend metricType={legendType} />
         </div>
       </TooltipProvider>
 
