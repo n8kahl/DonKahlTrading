@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { RefreshCw, Calendar, TrendingUp, TrendingDown } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { RefreshCw, Calendar, TrendingUp, TrendingDown, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export interface DashboardConfig {
@@ -134,7 +135,24 @@ export function DashboardControls({
 
         {/* Lookback with Presets */}
         <div className="flex items-center gap-1.5">
-          <Label className="text-xs text-muted-foreground whitespace-nowrap">Lookback:</Label>
+          <div className="flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">Lookback:</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground">
+                    <HelpCircle className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium mb-1">Rolling Window</p>
+                  <p className="text-xs text-muted-foreground">
+                    The period over which highs/lows are computed. 63 days = 1 quarter of trading days.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="h-8 w-20 font-mono text-xs">
@@ -175,7 +193,27 @@ export function DashboardControls({
 
         {/* Basis */}
         <div className="flex items-center gap-1.5">
-          <Label className="text-xs text-muted-foreground">Basis:</Label>
+          <div className="flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground">Basis:</Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground">
+                    <HelpCircle className="w-3 h-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium mb-1">Price Basis</p>
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Close:</span> Compare closing prices only (EOD data).
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="font-medium text-foreground">Intraday:</span> Include daily highs/lows for more sensitivity to intraday moves.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <Select
             value={config.basis}
             onValueChange={(value: "close" | "intraday") => onConfigChange({ ...config, basis: value })}

@@ -15,7 +15,6 @@ import { MarketExtremesPanel } from "@/components/market-extremes-panel"
 import { EnhancedHeatmapTable } from "@/components/enhanced-heatmap-table"
 import { AICompanion } from "@/components/ai-companion"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { HeatLegend } from "@/components/heat-legend"
 
 // Animation variants for smooth transitions
 const fadeSlide = {
@@ -90,10 +89,6 @@ export default function DashboardPage() {
   const dataDateRange = data?.dates?.length
     ? { from: data.dates[0], to: data.dates[data.dates.length - 1] }
     : undefined
-
-  // Determine legend type based on metric
-  const legendType = config.metric.includes("High") ? "high" : "low"
-  const isDaysMetric = config.metric.includes("days")
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -229,11 +224,10 @@ export default function DashboardPage() {
                     />
                   </div>
 
-                  {/* Legend */}
-                  <div className="mt-3 flex items-center justify-between">
-                    <HeatLegend metricType={legendType} isDays={isDaysMetric} compact />
+                  {/* Hint */}
+                  <div className="mt-2 text-center">
                     <span className="text-xs text-muted-foreground">
-                      Click any cell for details
+                      Click any cell for detailed breakdown
                     </span>
                   </div>
                 </motion.div>

@@ -15,7 +15,9 @@ import {
   GitCompare,
   AlertTriangle,
   Info,
+  HelpCircle,
 } from "lucide-react"
+import { InlineHeatLegend } from "./heat-legend"
 
 // =============================================================================
 // Types
@@ -536,48 +538,59 @@ export function EnhancedHeatmapTable({
 
   return (
     <>
-      {/* Header with View Mode Controls */}
-      <div className="flex items-center justify-between gap-4 px-4 py-2.5 border-b border-border bg-muted/30">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-muted-foreground">Heatmap</span>
-          <InfoTooltip />
-
-          {/* Sanity Badges */}
-          {sanity && (
-            <div className="flex items-center gap-2">
-              <SanityBadge type="stale" symbols={sanity.staleSymbols} />
-              <SanityBadge type="constant" symbols={sanity.constantDays} />
-            </div>
-          )}
+      {/* Header with Legend and View Mode Controls */}
+      <div className="border-b border-border bg-muted/30">
+        {/* Top row: Legend - always visible */}
+        <div className="px-4 py-2 border-b border-border/50">
+          <InlineHeatLegend
+            metricType={metric.includes('High') ? 'high' : 'low'}
+            isDays={metric.includes('days')}
+          />
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* View Mode Buttons - only show if we have dual data */}
-          {hasDualData && (
-            <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded">
-              <ViewModeButton
-                mode="single"
-                currentMode={viewMode}
-                onClick={() => handleViewModeChange("single")}
-                icon={currentBasis === "intraday" ? ArrowUp : ArrowDown}
-                label="Single View (current basis)"
-              />
-              <ViewModeButton
-                mode="dual"
-                currentMode={viewMode}
-                onClick={() => handleViewModeChange("dual")}
-                icon={Columns2}
-                label="Dual View (High vs Close)"
-              />
-              <ViewModeButton
-                mode="delta"
-                currentMode={viewMode}
-                onClick={() => handleViewModeChange("delta")}
-                icon={GitCompare}
-                label="Delta View (breakout rejections)"
-              />
-            </div>
-          )}
+        {/* Bottom row: Controls */}
+        <div className="flex items-center justify-between gap-4 px-4 py-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-muted-foreground">Heatmap</span>
+            <InfoTooltip />
+
+            {/* Sanity Badges */}
+            {sanity && (
+              <div className="flex items-center gap-2">
+                <SanityBadge type="stale" symbols={sanity.staleSymbols} />
+                <SanityBadge type="constant" symbols={sanity.constantDays} />
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* View Mode Buttons - only show if we have dual data */}
+            {hasDualData && (
+              <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded">
+                <ViewModeButton
+                  mode="single"
+                  currentMode={viewMode}
+                  onClick={() => handleViewModeChange("single")}
+                  icon={currentBasis === "intraday" ? ArrowUp : ArrowDown}
+                  label="Single View (current basis)"
+                />
+                <ViewModeButton
+                  mode="dual"
+                  currentMode={viewMode}
+                  onClick={() => handleViewModeChange("dual")}
+                  icon={Columns2}
+                  label="Dual View (High vs Close)"
+                />
+                <ViewModeButton
+                  mode="delta"
+                  currentMode={viewMode}
+                  onClick={() => handleViewModeChange("delta")}
+                  icon={GitCompare}
+                  label="Delta View (breakout rejections)"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
