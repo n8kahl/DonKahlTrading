@@ -55,6 +55,11 @@ interface ChatMessage {
   toolResults?: ToolResult[]
 }
 
+interface AICompanionProps {
+  isOpen?: boolean
+  onOpenChange?: (open: boolean) => void
+}
+
 // -----------------------------------------------------------------------------
 // Tool Result Card Component
 // -----------------------------------------------------------------------------
@@ -496,65 +501,43 @@ function LauncherButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
 }
 
 // -----------------------------------------------------------------------------
-// Desktop Chat Panel
+// Desktop Sidebar Panel (Full-height right sidebar)
 // -----------------------------------------------------------------------------
 
-function DesktopChatPanel({
+function DesktopSidebarPanel({
   isOpen,
-  isMinimized,
-  onToggleMinimize,
+  onClose,
   children,
 }: {
   isOpen: boolean
-  isMinimized: boolean
-  onToggleMinimize: () => void
+  onClose: () => void
   children: React.ReactNode
 }) {
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.95 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            height: isMinimized ? 60 : 600,
-          }}
-          exit={{ opacity: 0, y: 20, scale: 0.95 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className={cn(
-            'fixed bottom-24 right-6 w-[450px] z-50 rounded-2xl overflow-hidden',
-            'bg-black/90 backdrop-blur-xl',
-            'border border-white/10',
-            'shadow-2xl shadow-black/50'
-          )}
+    <>
+      {/* Sidebar */}
+      <div
+        className={cn(
+          'fixed top-0 right-0 h-full z-40',
+          'w-[420px] border-l border-white/10',
+          'bg-black/95 backdrop-blur-xl',
+          'transition-transform duration-300 ease-in-out',
+          'shadow-2xl shadow-black/50',
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        )}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label="Close chat"
         >
-          {/* Minimize Toggle */}
-          <button
-            onClick={onToggleMinimize}
-            className="absolute top-3 right-12 z-10 p-1.5 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-          </button>
+          <X className="w-5 h-5" />
+        </button>
 
-          {isMinimized ? (
-            <div className="flex items-center gap-3 px-4 py-4">
-              <Image
-                src="/tucson-trader-logo-small.png"
-                alt="Trading Copilot"
-                width={32}
-                height={32}
-                className="rounded-full"
-              />
-              <span className="text-sm font-medium text-white">Trading Copilot</span>
-            </div>
-          ) : (
-            children
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
+        {children}
+      </div>
+    </>
   )
 }
 
@@ -562,12 +545,14 @@ function DesktopChatPanel({
 // Main AI Companion Component
 // -----------------------------------------------------------------------------
 
-export function AICompanion() {
+export function AICompanion({ isOpen: controlledOpen, onOpenChange }: AICompanionProps) {
   const isMobile = useIsMobile()
   const { messages: aiMessages, isLoading, error, processingStatus, sendMessage, clearMessages, abortRequest } = useAI()
 
-  const [isOpen, setIsOpen] = useState(false)
-  const [isMinimized, setIsMinimized] = useState(false)
+  // Support both controlled and uncontrolled modes
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen
+  const setIsOpen = onOpenChange || setInternalOpen
   const [input, setInput] = useState('')
   const [isSharing, setIsSharing] = useState(false)
   const [expandedResult, setExpandedResult] = useState<ToolResult | null>(null)
@@ -689,9 +674,8 @@ export function AICompanion() {
   }, [messages])
 
   const toggleOpen = useCallback(() => {
-    setIsOpen((prev) => !prev)
-    if (isMinimized) setIsMinimized(false)
-  }, [isMinimized])
+    setIsOpen(!isOpen)
+  }, [isOpen, setIsOpen])
 
   const chatContent = (
     <>
@@ -772,22 +756,23 @@ export function AICompanion() {
     )
   }
 
-  // Desktop: Floating panel
+  // Desktop: Full-height sidebar
   return (
     <>
-      {/* Launcher */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <LauncherButton onClick={toggleOpen} isOpen={isOpen} />
-      </div>
+      {/* Launcher - only show when sidebar is closed */}
+      {!isOpen && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <LauncherButton onClick={toggleOpen} isOpen={isOpen} />
+        </div>
+      )}
 
-      {/* Chat Panel */}
-      <DesktopChatPanel
+      {/* Sidebar Panel */}
+      <DesktopSidebarPanel
         isOpen={isOpen}
-        isMinimized={isMinimized}
-        onToggleMinimize={() => setIsMinimized((prev) => !prev)}
+        onClose={() => setIsOpen(false)}
       >
         {chatContent}
-      </DesktopChatPanel>
+      </DesktopSidebarPanel>
     </>
   )
 }

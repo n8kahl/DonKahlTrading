@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import Image from "next/image"
 import { AlertCircle, Share2, Activity, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { ExportMenu } from "@/components/export-menu"
 import { DashboardControls, type DashboardConfig } from "@/components/dashboard-controls"
 import { StatsBar } from "@/components/stats-bar"
@@ -71,6 +72,7 @@ export default function DashboardPage() {
 
   const [isSharing, setIsSharing] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   // Drill sheet state
   const [drillSymbol, setDrillSymbol] = useState<string | null>(null)
@@ -210,7 +212,10 @@ export default function DashboardPage() {
       />
 
       {/* Main Content */}
-      <main className="flex-1 max-w-[1800px] w-full mx-auto">
+      <main className={cn(
+        "flex-1 max-w-[1800px] w-full mx-auto transition-all duration-300 ease-in-out",
+        isChatOpen && "lg:mr-[420px]"
+      )}>
         {isLoading && !data ? (
           <div className="p-4">
             <LoadingSkeleton />
@@ -345,7 +350,7 @@ export default function DashboardPage() {
       </main>
 
       {/* AI Companion */}
-      <AICompanion />
+      <AICompanion isOpen={isChatOpen} onOpenChange={setIsChatOpen} />
 
       {/* Symbol Drill Sheet */}
       {drillSymbol && drillSheetData && (
