@@ -9,8 +9,6 @@ import {
   User,
   Loader2,
   Trash2,
-  Minimize2,
-  Maximize2,
   Share2,
   Download,
 } from 'lucide-react'
@@ -21,14 +19,6 @@ import { renderResult } from '@/components/ai-cards/renderer-registry'
 import type { PinConfig } from '@/components/ai-cards/types'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
 import {
   Drawer,
   DrawerContent,
@@ -297,6 +287,7 @@ function ChatContent({
   handlePin,
   handleExpand,
   handleCancel,
+  handleClose,
   scrollRef,
   isSharing,
 }: {
@@ -313,6 +304,7 @@ function ChatContent({
   handlePin: (config: PinConfig) => void
   handleExpand: (result: ToolResult) => void
   handleCancel?: () => void
+  handleClose?: () => void
   scrollRef: React.RefObject<HTMLDivElement | null>
   isSharing?: boolean
 }) {
@@ -367,6 +359,17 @@ function ChatContent({
           >
             <Trash2 className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
+          {handleClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className="h-10 w-10 sm:h-8 sm:w-8 text-white/50 hover:text-white hover:bg-white/10 active:bg-white/20"
+              title="Close chat"
+            >
+              <X className="w-5 h-5 sm:w-4 sm:h-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -506,38 +509,24 @@ function LauncherButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
 
 function DesktopSidebarPanel({
   isOpen,
-  onClose,
   children,
 }: {
   isOpen: boolean
-  onClose: () => void
   children: React.ReactNode
 }) {
   return (
-    <>
-      {/* Sidebar */}
-      <div
-        className={cn(
-          'fixed top-0 right-0 h-full z-40',
-          'w-[420px] border-l border-white/10',
-          'bg-black/95 backdrop-blur-xl',
-          'transition-transform duration-300 ease-in-out',
-          'shadow-2xl shadow-black/50',
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        )}
-      >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors"
-          aria-label="Close chat"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {children}
-      </div>
-    </>
+    <div
+      className={cn(
+        'fixed top-0 right-0 h-full z-40',
+        'w-[420px] border-l border-white/10',
+        'bg-black/95 backdrop-blur-xl',
+        'transition-transform duration-300 ease-in-out',
+        'shadow-2xl shadow-black/50',
+        isOpen ? 'translate-x-0' : 'translate-x-full'
+      )}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -693,6 +682,7 @@ export function AICompanion({ isOpen: controlledOpen, onOpenChange }: AICompanio
         handlePin={handlePin}
         handleExpand={handleExpand}
         handleCancel={abortRequest}
+        handleClose={() => setIsOpen(false)}
         scrollRef={scrollRef}
         isSharing={isSharing}
       />
@@ -767,10 +757,7 @@ export function AICompanion({ isOpen: controlledOpen, onOpenChange }: AICompanio
       )}
 
       {/* Sidebar Panel */}
-      <DesktopSidebarPanel
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-      >
+      <DesktopSidebarPanel isOpen={isOpen}>
         {chatContent}
       </DesktopSidebarPanel>
     </>
