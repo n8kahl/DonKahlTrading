@@ -364,7 +364,7 @@ function ChatContent({
               variant="ghost"
               size="icon"
               onClick={handleClose}
-              className="h-10 w-10 sm:h-8 sm:w-8 text-white/50 hover:text-white hover:bg-white/10 active:bg-white/20"
+              className="h-10 w-10 sm:h-8 sm:w-8 ml-2 text-white bg-white/10 hover:bg-white/20 active:bg-white/30 border border-white/20"
               title="Close chat"
             >
               <X className="w-5 h-5 sm:w-4 sm:h-4" />
