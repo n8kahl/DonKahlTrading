@@ -509,9 +509,11 @@ function LauncherButton({ onClick, isOpen }: { onClick: () => void; isOpen: bool
 
 function DesktopSidebarPanel({
   isOpen,
+  onClose,
   children,
 }: {
   isOpen: boolean
+  onClose: () => void
   children: React.ReactNode
 }) {
   return (
@@ -525,6 +527,14 @@ function DesktopSidebarPanel({
         isOpen ? 'translate-x-0' : 'translate-x-full'
       )}
     >
+      {/* Floating close button - always visible */}
+      <button
+        onClick={onClose}
+        className="absolute top-16 left-0 -translate-x-full z-50 p-2 bg-black/90 border border-white/20 rounded-l-lg text-white hover:bg-white/10 transition-colors"
+        aria-label="Close chat"
+      >
+        <X className="w-5 h-5" />
+      </button>
       {children}
     </div>
   )
@@ -757,7 +767,7 @@ export function AICompanion({ isOpen: controlledOpen, onOpenChange }: AICompanio
       )}
 
       {/* Sidebar Panel */}
-      <DesktopSidebarPanel isOpen={isOpen}>
+      <DesktopSidebarPanel isOpen={isOpen} onClose={() => setIsOpen(false)}>
         {chatContent}
       </DesktopSidebarPanel>
     </>
