@@ -1,4 +1,4 @@
-import { fetchDailyBars, type DailyBar } from '@/lib/massive-api'
+import { fetchDailyBars, type DailyBar } from '../massive-api'
 
 const BASE_URL = process.env.POLYGON_BASE_URL || 'https://api.polygon.io'
 
