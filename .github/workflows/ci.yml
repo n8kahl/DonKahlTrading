@@ -39,6 +39,9 @@ jobs:
       - name: Unit tests
         run: npm run test:run
 
+      - name: NHNL research runner syntax
+        run: node --check scripts/research-nhnl-parity.mjs
+
       - name: Build
         run: npm run build
 
