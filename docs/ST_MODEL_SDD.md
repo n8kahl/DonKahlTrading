@@ -8,11 +8,11 @@
 
 ## 1. Purpose
 
-Reproduce Don's Excel ST Model natively inside Tucson Trader from Massive daily market data. The first release is a faithful port, not a strategy redesign. It does not place trades, size positions, optimize thresholds, or infer how Don uses the signals.
+Reproduce Don's Excel ST Model natively inside Tucson Trader from maintainable market data. The first release is a faithful port, not a strategy redesign. It does not place trades, size positions, optimize thresholds, or infer how Don uses the signals.
 
 Runtime flow:
 
-`Massive daily bars -> deterministic ST engine -> familiar signal table -> health/provenance -> explanation surfaces`
+`licensed/documented market data -> deterministic ST engine -> familiar signal table -> health/provenance -> explanation surfaces`
 
 Excel remains a behavioral reference during parity work, not a runtime dependency.
 
@@ -31,7 +31,7 @@ When labels and formulas disagree:
 3. repaired workbook wiring;
 4. labels/headings only when consistent with the above.
 
-`fixtures/workbook-contract.json` is the machine-readable evidence manifest.
+`fixtures/workbook-contract.json` is the machine-readable evidence manifest. `docs/ST_MODEL_SOURCE_AUDIT.md` records source provenance. `fixtures/nhnl-workbook-samples.json` is the golden fixture for breadth-source parity work.
 
 Important repair decisions:
 
@@ -152,7 +152,9 @@ State:
 - WMA > 0 => Bull
 - otherwise carry prior state
 
-The exact workbook source is stale after 2024-02-15. Native v1 therefore reports it unavailable and gates Bull rather than substituting Tucson Trader's ETF-proxy breadth.
+The source audit proved `NHNL!B:C` are static/pasted values rather than a connected Excel data feed. The last populated exact row is **2024-02-15: 230 new highs / 64 new lows**. Native v1 therefore reports NH/NL unavailable and gates Bull rather than substituting Tucson Trader's ETF-proxy breadth.
+
+A research-only reconstruction lane is permitted, but it cannot feed production Bull logic until it reproduces the workbook golden fixture to the accepted parity standard.
 
 ### DBE
 
@@ -164,17 +166,26 @@ For each symbol, track the rolling 110-observation maximum close. Each state ini
 
 Outside presidential override, DBE is Bear only when the fraction of zero states is **greater than 10%**. Exactly 10% remains Bull.
 
-Provider audit note: `I:IXF` exists in Massive's index namespace, but the current shared Tucson normalizer does not yet classify IXF as an index. `NYA` is not currently returned by the provider history/catalog checks performed for this implementation. Therefore v1 treats DBE as unavailable rather than inventing a substitute.
+Source audit findings:
+
+- DBE source cells are Excel linked Stocks data types and `STOCKHISTORY` backed by Refinitiv/LSEG through Microsoft Excel.
+- Workbook rich metadata identifies `IXF` as the **NASDAQ Financial 100 Index** and `NYA` as the **NYSE Composite**.
+- Massive historical aggregates work for `I:IXF`; the ST-specific adapter resolves workbook `IXF -> I:IXF`.
+- Massive provider catalog/history checks do not return `I:NYA`; this is a genuine provider-coverage gap, not a normalizer bug.
+- The Excel/Refinitiv entitlement is not treated as a reusable application API credential, and Tucson Trader must not call Microsoft's undocumented Bing/Excel linked-data refresh URLs.
+
+Therefore DBE remains unavailable until an exact NYA history source is connected or explicitly accepted through a reviewed provider decision.
 
 ## 8. Market-data behavior
 
-Reuse Tucson Trader's existing `fetchDailyBars`, `fetchMarketStatus`, `buildResponseMeta`, and `DailyBar` semantics.
+Use Tucson Trader's Massive layer for exact-covered workbook instruments. `lib/st-model/workbook-data.ts` owns workbook-specific provider identifiers such as `IXF -> I:IXF` without changing unrelated Tucson Trader symbol semantics.
 
 - fetch at least 600 observations per source;
 - bounded concurrency: five sources at a time;
 - while regular market is open, exclude a bar dated today so the model remains completed-daily-bar oriented;
 - source failure becomes an empty series and visible health degradation;
-- never fill failure with zero, previous close, mock data, or another ticker.
+- never fill failure with zero, previous close, mock data, or another ticker;
+- use only documented/licensed unattended APIs in the trading-decision path.
 
 ## 9. Health contract
 
@@ -205,14 +216,20 @@ lib/st-model/
   engine.ts
   index.ts
   engine.test.ts
+  workbook-data.ts
+  workbook-data.test.ts
+  nhnl-research.ts
+  nhnl-research.test.ts
 app/api/st-model/route.ts
 app/st-model/page.tsx
 components/st-model-table.tsx
 fixtures/workbook-contract.json
+fixtures/nhnl-workbook-samples.json
+docs/ST_MODEL_SOURCE_AUDIT.md
 e2e/st-model.spec.ts
 ```
 
-The engine has no React imports, database access, HTTP calls, or implicit current-time dependency.
+The deterministic signal engine has no React imports, database access, HTTP calls, or implicit current-time dependency. Research-only breadth code is not imported by the live API.
 
 ## 11. API
 
@@ -220,7 +237,7 @@ The engine has no React imports, database access, HTTP calls, or implicit curren
 
 Default display window is 90 days.
 
-Response contains newest-first display dates, fixed workbook symbol order, deterministic signal rows, `byDate`, health, existing Tucson response metadata, and methodology identifiers including workbook SHA.
+Response contains newest-first display dates, fixed workbook symbol order, deterministic signal rows, `byDate`, health, existing Tucson response metadata, and methodology identifiers including workbook SHA and DBE/NHNL source state.
 
 No response field is permission to trade.
 
@@ -255,7 +272,9 @@ Unit tests must prove:
 - PY month boundaries;
 - SMA 180 + six-row lag;
 - NH/NL weighted-average + state carry;
-- DBE 110-window initialization/carry and exact `> 10%` Bear boundary.
+- DBE 110-window initialization/carry and exact `> 10%` Bear boundary;
+- workbook-specific IXF provider mapping;
+- research NH/NL candidates cannot claim parity without exact golden-fixture comparison.
 
 Historical mismatches are classified as implementation defect, source-data difference, repaired workbook defect, unavailable legacy source, or non-comparable workbook corruption/staleness. Non-comparable rows are never counted as successful parity.
 
@@ -284,27 +303,28 @@ Historical mismatches are classified as implementation defect, source-data diffe
 
 ### Regression
 
-- `npm run lint`
+- baseline lint setup state is reported explicitly
 - `npm run test:run`
 - `npm run build`
-- existing Playwright suite
 - new ST Model E2E smoke
 
 ## 15. Rollout
 
 1. **Observation only:** ship beside the existing Tucson dashboard; no alerts or execution.
-2. **Parity confidence:** compare active dates with Don's workbook interpretation.
-3. **Explanation:** connect deterministic outputs to AI and chart/drill surfaces.
-4. **Workflow changes:** only after Don explains whether Std/Alt/Bull mean entry, ranking, timing, sizing context, or something else.
+2. **Source parity:** resolve exact NYA history and prove NH/NL source/reconstruction against the golden workbook fixture.
+3. **Parity confidence:** compare active dates with Don's workbook interpretation.
+4. **Explanation:** connect deterministic outputs to AI and chart/drill surfaces.
+5. **Workflow changes:** only after Don explains whether Std/Alt/Bull mean entry, ranking, timing, sizing context, or something else.
 
 ## 16. Definition of done for first PR
 
-- SDD and workbook evidence fixture committed;
+- SDD, source audit, and workbook evidence fixtures committed;
 - deterministic TypeScript engine committed;
 - signal/regime boundary tests committed;
-- `/api/st-model` computes from Massive daily bars;
+- `/api/st-model` computes exact-covered sources from documented market data;
 - `/st-model` renders workbook-style signals and visible health;
-- legacy NH/NL is explicitly gated;
-- real repo lint/test/build/E2E results recorded in PR;
+- workbook IXF semantics are repaired to `I:IXF`;
+- legacy NH/NL is explicitly gated and has a research-only parity harness;
+- real repo unit/build/browser results recorded in PR;
 - no trading automation or strategy optimization introduced;
-- unresolved DBE provider coverage is disclosed rather than substituted.
+- unresolved NYA/DBE provider coverage is disclosed rather than substituted.
