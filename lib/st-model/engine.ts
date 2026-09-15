@@ -2,6 +2,7 @@ import { QQQ_CONTEXT_SYMBOL, ST_MODEL_SYMBOLS, WORKBOOK_CONSTANTS } from './conf
 import { asRegimeMap, presidentialImpact } from './regimes'
 import type {
   RegimeSignal,
+  STBreadthMode,
   STDailyBar,
   STDataHealth,
   STModelResult,
@@ -118,9 +119,11 @@ export interface ComputeSTModelInput {
   dbeRegime: STRegimePoint[]
   nhnlRegime?: STRegimePoint[]
   breadthDataThrough?: string | null
+  breadthMode?: STBreadthMode
   displayDays?: number
   staleSymbols?: string[]
   unavailableSources?: string[]
+  healthNotes?: string[]
 }
 
 export function computeSTModel(input: ComputeSTModelInput): STModelResult {
@@ -183,9 +186,11 @@ export function computeSTModel(input: ComputeSTModelInput): STModelResult {
   const priceDataThrough = minDate(ST_MODEL_SYMBOLS.map((config) => latestDate(input.barsBySymbol[config.symbol] || [])))
   const staleSymbols = input.staleSymbols || []
   const unavailableSources = input.unavailableSources || []
-  const breadthMode = input.nhnlRegime?.length ? 'legacy-exact' : 'unavailable'
-  const notes: string[] = []
-  if (breadthMode === 'unavailable') notes.push('Legacy Nasdaq NH/NL input is unavailable; Bull composite signals are gated off.')
+  const breadthMode: STBreadthMode = input.nhnlRegime?.length
+    ? (input.breadthMode ?? 'legacy-exact')
+    : 'unavailable'
+  const notes: string[] = [...(input.healthNotes || [])]
+  if (breadthMode === 'unavailable') notes.push('Nasdaq NH/NL input is unavailable; Bull composite signals are gated off.')
   if (staleSymbols.length) notes.push(`Stale price feeds: ${staleSymbols.join(', ')}`)
   if (unavailableSources.length) notes.push(`Unavailable market-data sources: ${unavailableSources.join(', ')}`)
   const health: STDataHealth = {
