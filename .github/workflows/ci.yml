@@ -39,8 +39,10 @@ jobs:
       - name: Unit tests
         run: npm run test:run
 
-      - name: NHNL research runner syntax
-        run: node --check scripts/research-nhnl-parity.mjs
+      - name: ST Model standalone-script syntax
+        run: |
+          node --check scripts/research-nhnl-parity.mjs
+          node --check scripts/snapshot-wsj-breadth.mjs
 
       - name: Build
         run: npm run build
