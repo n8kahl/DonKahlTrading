@@ -91,12 +91,12 @@ export default function STModelPage() {
           </div>
         )}
 
-        {data?.health.unavailableSources?.length > 0 && (
+        {(data?.health.unavailableSources?.length ?? 0) > 0 && (
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>One or more workbook sources are unavailable from the market-data provider</AlertTitle>
             <AlertDescription>
-              Missing: {data.health.unavailableSources.join(', ')}. Any dependent regime is shown as unavailable rather than approximated.
+              Missing: {data?.health.unavailableSources?.join(', ')}. Any dependent regime is shown as unavailable rather than approximated.
             </AlertDescription>
           </Alert>
         )}
