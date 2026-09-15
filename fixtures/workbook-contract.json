@@ -1,0 +1,82 @@
+{
+  "specVersion": "2026-09-15",
+  "sourceWorkbook": {
+    "name": "ST_Model (9).xlsx",
+    "sha256": "088936d378790ad8633313fb35b1bda36253bbc3e8f0389da8bb50f0150fd27d"
+  },
+  "repairedReferenceWorkbook": {
+    "name": "ST_Model_Live_Hybrid_v2.xlsx",
+    "sha256": "f47a7ac4e8d58a0f9fd75d0be82ddc5b4f01f66de7496619a9f46c9cf47c9846"
+  },
+  "symbolSheets": {
+    "SOXL": "SOXL",
+    "TQQQ": "TQQQ",
+    "FNGG": "FNGG",
+    "TECL": "Alt0",
+    "TNA": "Alt1",
+    "MSTR": "Alt2",
+    "YINN": "Alt3",
+    "TAN": "Alt4"
+  },
+  "controlColumns": {
+    "B:D": "SOXL Std / Alt / Bull",
+    "E:G": "TQQQ Std / Alt / Bull",
+    "H:J": "FNGG Std / Alt / Bull",
+    "K:M": "TECL Std / Alt / Bull",
+    "N:P": "TNA Std / Alt / Bull",
+    "Q:S": "MSTR Std / Alt / Bull",
+    "T:V": "YINN Std / Alt / Bull",
+    "W:Y": "TAN Std / Alt / Bull",
+    "Z": "SMA regime",
+    "AA": "NH/NL regime",
+    "AB": "DBE regime",
+    "AC": "Presidential-year impact"
+  },
+  "constants": {
+    "rsiOffset": 4,
+    "rsiObservations": 5,
+    "riseFallWindow": 11,
+    "daysFromHighWindow": 63,
+    "smaWindow": 180,
+    "smaSlopeLagRows": 6,
+    "dbeWindow": 110,
+    "dbeBearishFractionThreshold": 0.1,
+    "stdFallThreshold": -0.2,
+    "stdRsiThreshold": 5,
+    "altRiseThreshold": 0.02,
+    "altRsiThreshold": 20,
+    "bullFastFallThreshold": -0.1,
+    "bullFastRsiThreshold": 5,
+    "bullFallbackFallThreshold": -0.15,
+    "bullFallbackRsiThreshold": 50,
+    "bullRiseThreshold": 0.025
+  },
+  "formulaEvidence": {
+    "rsiGainAverage": "=AVERAGE(G200:OFFSET(G200,-$I$2,0,1))",
+    "rsiLossAverage": "=AVERAGE(H200:OFFSET(H200,-$I$2,0,1))",
+    "rsi": "=IF(J200=0,100,100-(100/(1+K200)))",
+    "pctRise": "=D200/MIN(D190:D200)-1",
+    "pctFall": "=D200/MAX(C190:C200)-1",
+    "stdEligible": "=IF(AND(N200<-20%,L200=0,V200=\"PY_Thrust\"),\"EB\",IF(AND(N200<-20%,L200<5),\"B\",\"\"))",
+    "stdAltSheet": "=IF(AND(N200<-20%,L200<5),\"B\",IF(AND(N200<-20%,L200=0,W200=\"PY_Thrust\"),\"B\",\"\"))",
+    "altDefault": "=IF(AND(N200<-20%,M200<2%,L200<20),\"B\",\"\")",
+    "altFNGG": "=IF(AND(N200<-13%,M200<2%,L200<20),\"B\",\"\")",
+    "bull": "=IF(AND(N200<-10%,L200<5,M200<2.5%,COUNTIF(S200:U200,\"BULL\")=3),\"B\",IF(AND(N200<$AA$27,L200<$AA$25,M200<$AA$26,COUNTIF(S200:U200,\"BULL\")=3),\"B\",\"\"))",
+    "tickerPresidentialImpact": "=IF(AND(W200=2,MONTH(A200)>=10),\"PY_Thrust\",IF(AND(W200=3,MONTH(A200)<=7),\"PY_Thrust\",IF(AND(W200=2,MONTH(A200)<=9),\"PY_Danger\",\"\")))",
+    "sma": "=AVERAGE(B21:B200)",
+    "smaRegime": "=IF(C200>C194, \"Bull\", \"Bear\")",
+    "nhnlWma": "=(9*D20+8*D19+7*D18+6*D17+5*D16+4*D15+3*D14+2*D13+D12)/45",
+    "nhnlRegime": "=IF(E20 < -12, \"Bear\", IF(E20 > 0, \"Bull\", F19))",
+    "dbeState": "=IF(L199<>0,IF(L200>L199,1,IF(L200<L199,0,V199)),\"\")",
+    "dbePresidentialOverride": "=IF(OR(AND(AF200=2,MONTH(A200)>=10),AND(AF200=3,MONTH(A200)<=6)),\"Bull\",\"\")",
+    "dbeBearFraction": "=IF(AG200=$AF$3,0%,COUNTIF(V200:AE200,0)/COUNTA(V200:AE200))",
+    "dbeRegime": "=IF(AH200>0.1,\"Bear\",\"Bull\")"
+  },
+  "repairedDataSemantics": {
+    "FNGG": "FNGG is the intended symbol; the original linked-data object had been QLD.",
+    "NDX": "The helper sheet name is retained for compatibility, but the repaired helper is explicitly QQQ proxy context.",
+    "NHNL": "Legacy Nasdaq 52-week new-high/new-low data is exact only through 2024-02-15 and must not be silently substituted in the legacy Bull composite.",
+    "forwardROI": "Columns P/R/AA are forward evaluation/backtest outcomes and are not inputs to today's signal."
+  },
+  "dbeSymbols": ["SPY", "ITOT", "QQQ", "SOXX", "VTI", "IXF", "IWB", "NYA", "IWV", "USFR"]
+}
