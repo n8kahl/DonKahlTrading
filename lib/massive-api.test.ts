@@ -145,28 +145,18 @@ describe('computeEnhancedMetrics', () => {
     expect(result[0]).toHaveProperty('rollingHigh')
   })
 
-  it('pctFromHigh reflects distance from rolling high', () => {
-    // Note: rollingHigh is always computed from bar.high
-    // When basis='close', currentValue is bar.close
-    // pctFromHigh = ((rollingHigh - currentValue) / rollingHigh) * 100
-    // daysSinceHigh counts backwards for a bar where close >= rollingHigh
+  it('pctFromHigh reflects distance from the selected close-basis rolling high', () => {
     const bars = createBarsWithPeak(20, 19) // Peak at the end
     const result = computeEnhancedMetrics(bars, 10, 'close')
 
-    // Peak bar: close=150, high=151, rollingHigh=151
-    // pctFromHigh = ((151 - 150) / 151) * 100 = 0.66%
-    expect(result[19].pctFromHigh).toBeCloseTo(0.66, 1)
-
-    // daysSinceHigh looks for bar where close >= rollingHigh (151)
-    // No bar has close >= 151, so it counts all the way back in the window
-    expect(result[19].daysSinceHigh).toBe(9) // lookback-1 days since no bar reached the high
+    // Close basis uses closes for both rollingHigh and currentValue.
+    // The peak close is therefore exactly at the rolling high.
+    expect(result[19].rollingHigh).toBe(150)
+    expect(result[19].pctFromHigh).toBe(0)
+    expect(result[19].daysSinceHigh).toBe(0)
   })
 
-  it('pctFromHigh calculates correct percentage', () => {
-    // Note: rollingHigh is computed from bar.high, not bar.close
-    // pctFromHigh = ((rollingHigh - currentValue) / rollingHigh) * 100
-    // When basis='close', currentValue = bar.close
-    // Use lookback=3 to avoid early return (bars.length must be >= lookback)
+  it('pctFromHigh calculates correct percentage for close basis', () => {
     const bars: DailyBar[] = [
       { date: '2024-01-01', open: 100, high: 110, low: 90, close: 100, volume: 1000 },
       { date: '2024-01-02', open: 100, high: 105, low: 90, close: 95, volume: 1000 },
@@ -175,34 +165,21 @@ describe('computeEnhancedMetrics', () => {
 
     const result = computeEnhancedMetrics(bars, 3, 'close')
 
-    // Day 0: rollingHigh=110, close=100, pctFromHigh = (110-100)/110 * 100 = 9.09%
-    expect(result[0].pctFromHigh).toBeCloseTo(9.09, 1)
-
-    // Day 1: rollingHigh=110, close=95, pctFromHigh = (110-95)/110 * 100 = 13.64%
-    expect(result[1].pctFromHigh).toBeCloseTo(13.64, 1)
-
-    // Day 2: rollingHigh=110, close=90, pctFromHigh = (110-90)/110 * 100 = 18.18%
-    expect(result[2].pctFromHigh).toBeCloseTo(18.18, 1)
+    // Close-basis rolling high remains the maximum close (100).
+    expect(result[0].pctFromHigh).toBeCloseTo(0, 10)
+    expect(result[1].pctFromHigh).toBeCloseTo(5, 10)
+    expect(result[2].pctFromHigh).toBeCloseTo(10, 10)
   })
 
-  it('rollingHigh tracks the maximum in the window', () => {
-    // Note: createBarsWithPeak creates bars where high = close + 1
-    // Non-peak bars: close=100, high=101
-    // Peak bar at index 10: close=150, high=151
+  it('rollingHigh tracks the maximum selected basis in the window', () => {
     const bars = createBarsWithPeak(20, 10, 150)
     const result = computeEnhancedMetrics(bars, 5, 'close')
 
-    // Before the peak (index 9), rolling high should be 101 (high of non-peak bar)
-    expect(result[9].rollingHigh).toBe(101)
-
-    // At the peak (index 10), rolling high should be 151 (peak bar's high)
-    expect(result[10].rollingHigh).toBe(151)
-
-    // After the peak but still in window (index 14), rolling high should still be 151
-    expect(result[14].rollingHigh).toBe(151)
-
-    // After peak leaves window (index 16), rolling high should be back to 101
-    expect(result[16].rollingHigh).toBe(101)
+    // Close basis tracks close, not intraday high.
+    expect(result[9].rollingHigh).toBe(100)
+    expect(result[10].rollingHigh).toBe(150)
+    expect(result[14].rollingHigh).toBe(150)
+    expect(result[16].rollingHigh).toBe(100)
   })
 })
 
@@ -247,21 +224,20 @@ describe('Data ordering requirements', () => {
   })
 
   it('computeEnhancedMetrics produces different results with wrong order', () => {
-    // Create ascending bars with peak at index 5 (close=150, high=151)
+    // Create ascending bars with peak at index 5 (close=150)
     // Use peak at index 5 so window positions differ more clearly
     const ascendingBars = createBarsWithPeak(20, 5)
     const metricsAsc = computeEnhancedMetrics(ascendingBars, 10, 'close')
 
-    // At index 10, window is 1-10, peak at 5 is IN window
-    expect(metricsAsc[10].rollingHigh).toBe(151)
+    // At index 10, window is 1-10, peak at 5 is IN window.
+    expect(metricsAsc[10].rollingHigh).toBe(150)
 
-    // Descending order: peak at original index 5 becomes index 14
+    // Descending order: peak at original index 5 becomes index 14.
     const descendingBars = [...ascendingBars].reverse()
     const metricsDesc = computeEnhancedMetrics(descendingBars, 10, 'close')
 
-    // At index 10 in descending, window is 1-10
-    // Peak is at index 14 (out of window), so rollingHigh is 101 (non-peak bars)
-    expect(metricsDesc[10].rollingHigh).toBe(101)
+    // At index 10 in descending, peak is out of window, so close-basis high is 100.
+    expect(metricsDesc[10].rollingHigh).toBe(100)
   })
 })
 
