@@ -44,7 +44,7 @@ test('ST Model renders workbook-style signals and visible breadth gate', async (
   await page.goto('/st-model')
   await expect(page.getByRole('heading', { name: 'ST Model' })).toBeVisible()
   await expect(page.getByText('Price data through')).toBeVisible()
-  await expect(page.getByText('2026-09-14')).toBeVisible()
+  await expect(page.getByText('2026-09-14').first()).toBeVisible()
   await expect(page.getByText('NH/NL confirmation is intentionally gated')).toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'SOXL' })).toBeVisible()
   await expect(page.getByText('B', { exact: true }).first()).toBeVisible()
