@@ -25,18 +25,18 @@ const response = {
     },
   },
   health: {
-    status: 'degraded', priceDataThrough: '2026-09-14', breadthDataThrough: '2024-02-15',
+    status: 'degraded', priceDataThrough: '2026-09-14', breadthDataThrough: '2026-09-14',
     breadthMode: 'unavailable', staleSymbols: [], unavailableSources: ['NYA'],
-    notes: ['Legacy Nasdaq NH/NL input is unavailable; Bull composite signals are gated off.'],
+    notes: ['WSJ/Dow Jones NH/NL is warming up: 1/9 contiguous completed sessions.'],
   },
   meta: { lastFetchedAt: '2026-09-15T18:00:00Z', marketStatus: 'open', isDelayed: false },
   methodology: {
-    workbookParity: 'formula-faithful-v1', nhnl: 'unavailable-not-substituted',
+    workbookParity: 'formula-faithful-v1', nhnl: 'WSJ/Dow Jones Market Diary; unavailable/warming-up',
     partialDailyBarPolicy: 'current session excluded',
   },
 }
 
-test('ST Model renders workbook-style signals and visible breadth gate', async ({ page }) => {
+test('ST Model renders workbook-style signals and visible breadth warmup gate', async ({ page }) => {
   await page.route('**/api/st-model?days=126', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(response) })
   })
@@ -45,7 +45,27 @@ test('ST Model renders workbook-style signals and visible breadth gate', async (
   await expect(page.getByRole('heading', { name: 'ST Model' })).toBeVisible()
   await expect(page.getByText('Price data through')).toBeVisible()
   await expect(page.getByText('2026-09-14').first()).toBeVisible()
+  await expect(page.getByText('Gated / warming')).toBeVisible()
   await expect(page.getByText('NH/NL confirmation is intentionally gated')).toBeVisible()
+  await expect(page.getByText(/warming up: 1\/9/)).toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'SOXL' })).toBeVisible()
   await expect(page.getByText('B', { exact: true }).first()).toBeVisible()
+})
+
+test('ST Model identifies active canonical WSJ breadth explicitly', async ({ page }) => {
+  const active = {
+    ...response,
+    health: {
+      ...response.health,
+      breadthMode: 'wsj-dow-jones',
+      notes: ['WSJ/Dow Jones NH/NL history is current with 9 contiguous completed sessions.'],
+    },
+  }
+  await page.route('**/api/st-model?days=126', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(active) })
+  })
+
+  await page.goto('/st-model')
+  await expect(page.getByText('WSJ / Dow Jones')).toBeVisible()
+  await expect(page.getByText('NH/NL confirmation is intentionally gated')).toHaveCount(0)
 })
