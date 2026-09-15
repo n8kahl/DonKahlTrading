@@ -96,13 +96,3 @@ Nasdaq's Fundamental Data product is another strong candidate because it supplie
 3. Explicit provenance and freshness in the API/UI.
 4. Missing exact data fails closed.
 5. No silent proxy substitution and no undocumented scraping endpoint in a trading decision path.
-
-## Validation
-
-The final source-audit head was verified in GitHub Actions with:
-
-- unit suite: pass;
-- NH/NL research-runner syntax: pass;
-- Next.js production build: pass;
-- Chromium install: pass;
-- `/st-model` browser smoke: pass.
