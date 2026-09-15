@@ -40,6 +40,8 @@ The workbook rich-data snapshot identifies `NYA` as **NYSE COMPOSITE** and `IXF`
 
 Using Refinitiv itself outside Excel would require a direct LSEG/Refinitiv entitlement/API; the workbook's Microsoft-linked-data entitlement is not a general-purpose application API credential.
 
+A candidate exact-source bridge exists through Microsoft Graph: workbook APIs can calculate `.xlsx` files stored in supported OneDrive/SharePoint business storage and read resulting ranges under delegated user authorization. This could potentially allow a tiny Excel workbook containing the NYA `STOCKHISTORY` formula to act as a Refinitiv-backed bridge using an existing Microsoft 365 entitlement. It is **not accepted yet**: the implementation must first prove that `STOCKHISTORY` recalculates successfully through Graph, that the resulting NYA bars match the workbook values, and that delegated-token operation is acceptable for Tucson Trader. No Graph bridge is currently in the production path.
+
 ## Nasdaq New Highs / New Lows
 
 The workbook does **not** contain a live connection for `NHNL!B:C`.
@@ -59,9 +61,31 @@ Therefore there is no live spreadsheet datasource to mirror for NH/NL. The corre
 
 `lib/st-model/nhnl-research.ts` provides a research-only candidate reconstruction and exact comparison harness. It is intentionally not imported by the live API.
 
+`scripts/research-nhnl-parity.mjs` is the reproducible Massive-backed research runner. It:
+
+1. retrieves the historical active XNAS common-stock universe at the final golden-fixture date;
+2. retrieves SPY trading dates for the required lookback window;
+3. downloads/caches Massive grouped US daily aggregates for those sessions;
+4. keeps only the historical Nasdaq common-stock universe;
+5. sweeps plausible candidate definitions (intraday vs close, full-history vs shorter-history eligibility);
+6. compares every candidate against the workbook's exact high/low counts;
+7. exits non-zero if no candidate reproduces every golden row exactly.
+
+The command is:
+
+```bash
+MASSIVE_API_KEY=... npm run research:nhnl
+```
+
+The runner is not executed in CI because it performs hundreds of licensed historical-data requests. CI syntax-checks it with `node --check`.
+
 Initial Massive reference-universe research for **2024-02-15** returned **3,302 active XNAS common stocks**. The workbook contains a `3400` Nasdaq-universe constant. The proximity makes full-universe reconstruction plausible, but it is not evidence of parity by itself.
 
 A candidate NH/NL source may be promoted to the live Bull regime only after its historical counts reproduce the workbook fixture to the agreed parity standard. Until then, NH/NL remains explicitly gated.
+
+### Official Nasdaq option
+
+Nasdaq's Fundamental Data product is another strong candidate because it supplies Nasdaq-listed issue metadata plus daily high/low and 52-week high/low data on a T+1 basis. It is a licensed subscription product. If Massive reconstruction cannot match the workbook fixture, this should be evaluated before accepting a proxy breadth methodology.
 
 ## Source hierarchy for native ST Model
 
