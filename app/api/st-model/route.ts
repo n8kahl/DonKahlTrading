@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
         workbookParity: 'formula-faithful-v1',
         specVersion: ST_MODEL_SPEC_VERSION,
         sourceWorkbookSha256: ST_MODEL_REFERENCE_SHA256,
-        dbE: 'same-workbook-instruments; IXF resolved as I:IXF; unavailable instruments fail closed',
+        dbe: 'same-workbook-instruments; IXF resolved as I:IXF; unavailable instruments fail closed',
         nhnl: 'unavailable-not-substituted',
         partialDailyBarPolicy: marketOpen ? 'current session excluded' : 'latest returned daily bar accepted',
       },
