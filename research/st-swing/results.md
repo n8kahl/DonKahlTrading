@@ -104,14 +104,14 @@ After requiring full ATR warm-up and suppressing active same-symbol overlap:
 | Executable events | **217** |
 | Distinct signal-date baskets | **149** |
 | Mean event return | **+3.09%** |
-| Median event return | **+3.26%** |
+| Median event return | **+3.36%** |
 | Positive events | **59.9%** |
-| Average winning event | **+11.19%** |
-| Average losing event | **-9.12%** |
-| Payoff ratio | **1.23** |
+| Average winning event | **+11.15%** |
+| Average losing event | **-8.94%** |
+| Payoff ratio | **1.25** |
 | Profit factor | **1.86** |
-| Average MFE | **+11.02%** |
-| Average MAE | **-8.77%** |
+| Average MFE | **+11.01%** |
+| Average MAE | **-8.65%** |
 | 5th percentile event | **-15.84%** |
 | Worst modeled event | **-20.86%** |
 | 5% CVaR / expected shortfall | **-18.38%** |
