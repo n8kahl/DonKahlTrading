@@ -43,11 +43,13 @@ export interface STSignalPoint {
   bullSignalEligible: boolean
 }
 
+export type STBreadthMode = 'legacy-exact' | 'wsj-dow-jones' | 'unavailable'
+
 export interface STDataHealth {
   status: 'current' | 'degraded' | 'stale'
   priceDataThrough: string | null
   breadthDataThrough: string | null
-  breadthMode: 'legacy-exact' | 'unavailable'
+  breadthMode: STBreadthMode
   staleSymbols: string[]
   unavailableSources: string[]
   notes: string[]
