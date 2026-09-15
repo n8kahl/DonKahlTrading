@@ -29,12 +29,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint (baseline repo command is currently missing eslint)
-        continue-on-error: true
-        run: npm run lint
+      - name: Lint baseline check
+        run: |
+          if [ -x node_modules/.bin/eslint ]; then
+            npm run lint
+          else
+            echo "::warning::package.json defines npm run lint, but eslint is not installed in this repository yet"
+          fi
 
       - name: Unit tests
         run: npm run test:run
 
       - name: Build
         run: npm run build
+
+      - name: Install Chromium for ST Model smoke test
+        run: npx playwright install --with-deps chromium
+
+      - name: ST Model browser smoke
+        run: npx playwright test e2e/st-model.spec.ts
