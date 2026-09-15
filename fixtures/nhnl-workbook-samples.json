@@ -1,0 +1,17 @@
+{
+  "source": "ST_Model (9).xlsx / NHNL!A:C",
+  "sourceWorkbookSha256": "088936d378790ad8633313fb35b1bda36253bbc3e8f0389da8bb50f0150fd27d",
+  "note": "These are workbook-observed Nasdaq new-high/new-low counts. The workbook contains no external connection for B:C; values are static and stop after 2024-02-15.",
+  "rows": [
+    { "date": "2024-02-02", "newHighs": 174, "newLows": 164 },
+    { "date": "2024-02-05", "newHighs": 91, "newLows": 212 },
+    { "date": "2024-02-06", "newHighs": 117, "newLows": 126 },
+    { "date": "2024-02-07", "newHighs": 237, "newLows": 147 },
+    { "date": "2024-02-08", "newHighs": 253, "newLows": 108 },
+    { "date": "2024-02-09", "newHighs": 317, "newLows": 89 },
+    { "date": "2024-02-12", "newHighs": 357, "newLows": 56 },
+    { "date": "2024-02-13", "newHighs": 47, "newLows": 129 },
+    { "date": "2024-02-14", "newHighs": 114, "newLows": 80 },
+    { "date": "2024-02-15", "newHighs": 230, "newLows": 64 }
+  ]
+}

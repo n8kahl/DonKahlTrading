@@ -134,3 +134,28 @@ model UserPreferences {
 
   @@map("user_preferences")
 }
+
+// =============================================================================
+// ST Model - canonical Nasdaq breadth snapshots
+// =============================================================================
+
+model StBreadthSnapshot {
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Completed market session represented by this source observation.
+  date            String
+  newHighs        Int
+  newLows         Int
+
+  // Source and variant are explicit so unlike source/revision families can
+  // never be silently mixed into the nine-session NH/NL regime.
+  source          String
+  variant         String
+  sourceTimestamp String?
+  capturedAt      DateTime
+
+  @@id([date, variant])
+  @@index([variant, date])
+  @@map("st_breadth_snapshots")
+}
