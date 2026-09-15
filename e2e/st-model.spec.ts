@@ -70,7 +70,7 @@ test('ST Model defaults to a clear today-first signal surface', async ({ page })
   await expect(page.getByRole('heading', { name: 'Today by symbol' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'SOXL' })).toBeVisible()
   await expect(page.getByText('Signal active')).toBeVisible()
-  await expect(page.getByText('Std B')).toBeVisible()
+  await expect(page.getByText('Std B').first()).toBeVisible()
   await expect(page.getByText('No signal today').first()).toBeVisible()
   await expect(page.getByText('Core ST signals are live; full Bull confirmation is limited')).toBeVisible()
 
@@ -85,8 +85,8 @@ test('signal history hides blank workbook rows and keeps only actual signals', a
 
   await page.getByRole('tab', { name: 'Signal history' }).click()
   await expect(page.getByRole('heading', { name: 'Signal history' })).toBeVisible()
-  await expect(page.getByText('2026-09-14')).toBeVisible()
-  await expect(page.getByText('2026-09-11')).toHaveCount(0)
+  await expect(page.getByText('2026-09-14', { exact: true })).toBeVisible()
+  await expect(page.getByText('2026-09-11', { exact: true })).toHaveCount(0)
   await expect(page.getByText('Std B')).toBeVisible()
 })
 
