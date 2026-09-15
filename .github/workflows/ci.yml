@@ -47,8 +47,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Chromium for ST Model smoke test
+      - name: Install Chromium for product smoke tests
         run: npx playwright install --with-deps chromium
 
-      - name: ST Model browser smoke
-        run: npx playwright test e2e/st-model.spec.ts
+      - name: Product browser smoke
+        run: npx playwright test e2e/st-model.spec.ts e2e/today.spec.ts
