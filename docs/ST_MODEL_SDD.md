@@ -226,6 +226,7 @@ components/st-model-table.tsx
 fixtures/workbook-contract.json
 fixtures/nhnl-workbook-samples.json
 docs/ST_MODEL_SOURCE_AUDIT.md
+scripts/research-nhnl-parity.mjs
 e2e/st-model.spec.ts
 ```
 
@@ -278,7 +279,27 @@ Unit tests must prove:
 
 Historical mismatches are classified as implementation defect, source-data difference, repaired workbook defect, unavailable legacy source, or non-comparable workbook corruption/staleness. Non-comparable rows are never counted as successful parity.
 
-## 14. Release gates
+## 14. Source-parity research gate
+
+### NH/NL
+
+`npm run research:nhnl` uses Massive historical XNAS common stocks plus grouped daily aggregates to reconstruct candidate Nasdaq 52-week high/low breadth. It caches downloaded data and compares candidate definitions against the workbook's golden 2024 fixture.
+
+The research command is not part of CI because it requires a licensed market-data key and hundreds of historical requests. CI performs `node --check scripts/research-nhnl-parity.mjs`; the candidate cannot enter production merely because the script runs. It must meet the accepted parity threshold.
+
+Nasdaq Fundamental Data is the preferred external-data fallback if Massive reconstruction cannot reproduce the legacy counts because it exposes Nasdaq issue metadata with daily and 52-week high/low statistics on a licensed T+1 basis.
+
+### NYA
+
+Candidate order:
+
+1. documented provider with exact NYSE Composite history that can be validated against workbook/Refinitiv bars;
+2. proof-of-concept Microsoft Graph workbook bridge using delegated Microsoft 365 access and a minimal NYA `STOCKHISTORY` workbook, only if Graph can recalculate and return exact values reliably;
+3. direct LSEG/Refinitiv API only with an appropriate application entitlement.
+
+No undocumented Microsoft/Bing endpoint and no substitute index may satisfy NYA.
+
+## 15. Release gates
 
 ### Core
 
@@ -305,10 +326,11 @@ Historical mismatches are classified as implementation defect, source-data diffe
 
 - baseline lint setup state is reported explicitly
 - `npm run test:run`
+- `node --check scripts/research-nhnl-parity.mjs`
 - `npm run build`
 - new ST Model E2E smoke
 
-## 15. Rollout
+## 16. Rollout
 
 1. **Observation only:** ship beside the existing Tucson dashboard; no alerts or execution.
 2. **Source parity:** resolve exact NYA history and prove NH/NL source/reconstruction against the golden workbook fixture.
@@ -316,7 +338,7 @@ Historical mismatches are classified as implementation defect, source-data diffe
 4. **Explanation:** connect deterministic outputs to AI and chart/drill surfaces.
 5. **Workflow changes:** only after Don explains whether Std/Alt/Bull mean entry, ranking, timing, sizing context, or something else.
 
-## 16. Definition of done for first PR
+## 17. Definition of done for first PR
 
 - SDD, source audit, and workbook evidence fixtures committed;
 - deterministic TypeScript engine committed;
@@ -324,7 +346,7 @@ Historical mismatches are classified as implementation defect, source-data diffe
 - `/api/st-model` computes exact-covered sources from documented market data;
 - `/st-model` renders workbook-style signals and visible health;
 - workbook IXF semantics are repaired to `I:IXF`;
-- legacy NH/NL is explicitly gated and has a research-only parity harness;
+- legacy NH/NL is explicitly gated and has a research-only parity harness + repeatable Massive research command;
 - real repo unit/build/browser results recorded in PR;
 - no trading automation or strategy optimization introduced;
 - unresolved NYA/DBE provider coverage is disclosed rather than substituted.
