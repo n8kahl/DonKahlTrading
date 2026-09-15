@@ -42,6 +42,8 @@ Using Refinitiv itself outside Excel would require a direct LSEG/Refinitiv entit
 
 A candidate exact-source bridge exists through Microsoft Graph: workbook APIs can calculate `.xlsx` files stored in supported OneDrive/SharePoint business storage and read resulting ranges under delegated user authorization. This could potentially allow a tiny Excel workbook containing the NYA `STOCKHISTORY` formula to act as a Refinitiv-backed bridge using an existing Microsoft 365 entitlement. It is **not accepted yet**: the implementation must first prove that `STOCKHISTORY` recalculates successfully through Graph, that the resulting NYA bars match the workbook values, and that delegated-token operation is acceptable for Tucson Trader. No Graph bridge is currently in the production path.
 
+A documented third-party index API is also acceptable only after exact-date validation against Refinitiv/workbook NYA values. The presence of a `NYA` symbol at another vendor is not sufficient by itself.
+
 ## Nasdaq New Highs / New Lows
 
 The workbook does **not** contain a live connection for `NHNL!B:C`.
