@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "research:nhnl": "node scripts/research-nhnl-parity.mjs",
+    "snapshot:breadth": "node scripts/snapshot-wsj-breadth.mjs",
     "start": "bash scripts/start.sh",
     "start:next": "next start",
     "test": "vitest",
