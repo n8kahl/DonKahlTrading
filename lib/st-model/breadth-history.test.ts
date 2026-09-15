@@ -31,7 +31,8 @@ describe('NHNL breadth history gate', () => {
     const missingSep9 = rows(sessions.filter((date) => date !== '2026-09-09'))
     const assessment = assessBreadthHistory(missingSep9, sessions, '2026-09-14')
     expect(assessment.ready).toBe(false)
-    expect(assessment.contiguousSessions).toBe(4)
+    // The contiguous suffix after the missing Sep 9 session is Sep 10, Sep 11, Sep 14.
+    expect(assessment.contiguousSessions).toBe(3)
     expect(assessment.missingRequiredDates).toEqual(['2026-09-09'])
   })
 
