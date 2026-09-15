@@ -12,6 +12,13 @@ const response = {
       bullSignalEligible: false,
     },
     {
+      date: '2026-09-14', symbol: 'TQQQ', std: '', alt: '', bull: '',
+      rsi: 37.5, pctRise: 0.04, pctFall: -0.07, daysFromHigh: 6,
+      qqqDaysSince63dHigh: 3, pyImpact: 'PY_Danger',
+      regimes: { sma: 'Bull', nhnl: 'Unavailable', dbe: 'Bull' },
+      bullSignalEligible: false,
+    },
+    {
       date: '2026-09-11', symbol: 'SOXL', std: '', alt: '', bull: '',
       rsi: 25, pctRise: 0.03, pctFall: -0.08, daysFromHigh: 11,
       qqqDaysSince63dHigh: 2, pyImpact: 'PY_Danger',
@@ -24,6 +31,13 @@ const response = {
       SOXL: {
         date: '2026-09-14', symbol: 'SOXL', std: 'B', alt: '', bull: '',
         rsi: 4.2, pctRise: 0.01, pctFall: -0.21, daysFromHigh: 12,
+        qqqDaysSince63dHigh: 3, pyImpact: 'PY_Danger',
+        regimes: { sma: 'Bull', nhnl: 'Unavailable', dbe: 'Bull' },
+        bullSignalEligible: false,
+      },
+      TQQQ: {
+        date: '2026-09-14', symbol: 'TQQQ', std: '', alt: '', bull: '',
+        rsi: 37.5, pctRise: 0.04, pctFall: -0.07, daysFromHigh: 6,
         qqqDaysSince63dHigh: 3, pyImpact: 'PY_Danger',
         regimes: { sma: 'Bull', nhnl: 'Unavailable', dbe: 'Bull' },
         bullSignalEligible: false,
@@ -71,7 +85,8 @@ test('ST Model defaults to a clear today-first signal surface', async ({ page })
   await expect(page.getByRole('heading', { name: 'SOXL' })).toBeVisible()
   await expect(page.getByText('Signal active')).toBeVisible()
   await expect(page.getByText('Std B').first()).toBeVisible()
-  await expect(page.getByText('No signal today').first()).toBeVisible()
+  await expect(page.getByText('No signal today')).toBeVisible()
+  await expect(page.getByText('Data unavailable').first()).toBeVisible()
   await expect(page.getByText('Core ST signals are live; full Bull confirmation is limited')).toBeVisible()
 
   await page.getByText('Data health details').click()
