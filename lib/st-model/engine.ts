@@ -85,7 +85,7 @@ function daysFromHighCounter(bars: STDailyBar[]): Array<number | null> {
     const slice = bars.slice(index - window + 1, index + 1)
     const maxClose = Math.max(...slice.map((bar) => bar.close))
     if (bars[index].close === maxClose) output[index] = 0
-    else output[index] = output[index - 1] == null ? null : output[index - 1]! + 1
+    else output[index] = (output[index - 1] ?? 0) + 1
   }
   return output
 }
