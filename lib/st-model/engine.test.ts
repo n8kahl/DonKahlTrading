@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ST_MODEL_SYMBOLS } from './config'
-import { computeWorkbookRiseFall, computeWorkbookRsi, evaluateSignalSet } from './engine'
+import { computeSTModel, computeWorkbookRiseFall, computeWorkbookRsi, evaluateSignalSet } from './engine'
 import { computeDbeRegime, computeLegacyNhnlRegime, computeSmaRegime, presidentialImpact } from './regimes'
 import type { STDailyBar } from './types'
 
@@ -36,6 +36,18 @@ describe('ST Model workbook parity: metric primitives', () => {
     const metric = computeWorkbookRiseFall(bars, 10)
     expect(metric.pctRise).toBeCloseTo(100 / 90 - 1, 10)
     expect(metric.pctFall).toBeCloseTo(100 / 120 - 1, 10)
+  })
+
+  it('starts days-from-high at 1 on the first 63-session eligible row when no new high is made', () => {
+    const bars = dailyBars(63, 200, -1)
+    const date = bars.at(-1)!.date
+    const model = computeSTModel({
+      barsBySymbol: { SOXL: bars, QQQ: bars },
+      smaRegime: [],
+      dbeRegime: [],
+      displayDays: 63,
+    })
+    expect(model.byDate[date].SOXL.daysFromHigh).toBe(1)
   })
 })
 
