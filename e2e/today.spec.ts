@@ -99,9 +99,9 @@ test('Today stays page-responsive at phone width and keeps all three primary des
 
   await expect(page.getByRole('heading', { name: 'Trading Desk' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Today' })).toHaveAttribute('href', '/')
-  await expect(page.getByRole('link', { name: 'Market' }).last()).toHaveAttribute('href', '/market')
-  await expect(page.getByRole('link', { name: 'Model' })).toHaveAttribute('href', '/st-model')
+  await expect(page.getByRole('link', { name: 'Today', exact: true })).toHaveAttribute('href', '/')
+  await expect(page.getByRole('link', { name: 'Market', exact: true }).last()).toHaveAttribute('href', '/market')
+  await expect(page.getByRole('link', { name: 'Model', exact: true })).toHaveAttribute('href', '/st-model')
 
   const widths = await page.evaluate(() => ({
     client: document.documentElement.clientWidth,
