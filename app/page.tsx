@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import useSWR from "swr"
 import { motion, AnimatePresence } from "framer-motion"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -185,6 +186,12 @@ export default function DashboardPage() {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              <Button asChild size="sm" variant="outline" className="h-10 sm:h-8 px-3">
+                <Link href="/st-model">
+                  <Activity className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline text-xs">ST Model</span>
+                </Link>
+              </Button>
               <ThemeToggle />
               <ExportMenu data={data} config={config} />
               <Button
