@@ -30,6 +30,12 @@ async function fetcher(url: string): Promise<STModelApiResponse> {
   return body
 }
 
+function breadthLabel(mode: STModelResult['health']['breadthMode']): string {
+  if (mode === 'wsj-dow-jones') return 'WSJ / Dow Jones'
+  if (mode === 'legacy-exact') return 'Legacy exact'
+  return 'Gated / warming'
+}
+
 export default function STModelPage() {
   const { data, error, isLoading, isValidating, mutate } = useSWR<STModelApiResponse>('/api/st-model?days=126', fetcher, {
     refreshInterval: 300_000,
@@ -85,8 +91,9 @@ export default function STModelPage() {
               <div className="mt-1 font-semibold capitalize">{data.meta?.marketStatus || 'Unknown'}</div>
             </div>
             <div className="rounded-md border border-border bg-card p-3">
-              <div className="text-xs text-muted-foreground">Legacy breadth</div>
-              <div className="mt-1 font-semibold">{data.health.breadthMode === 'legacy-exact' ? 'Active' : 'Gated'}</div>
+              <div className="text-xs text-muted-foreground">Nasdaq breadth</div>
+              <div className="mt-1 font-semibold">{breadthLabel(data.health.breadthMode)}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">Through {data.health.breadthDataThrough || '—'}</div>
             </div>
           </div>
         )}
@@ -106,9 +113,15 @@ export default function STModelPage() {
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>NH/NL confirmation is intentionally gated</AlertTitle>
             <AlertDescription>
-              The Excel model's Nasdaq 52-week new-high/new-low source is stale. Tucson Trader does not substitute ETF-proxy breadth into the legacy Bull signal without a parity decision, so Std and Alt remain live while the three-regime Bull confirmation stays off.
+              Tucson Trader has identified the WSJ / Dow Jones Nasdaq Market Diary source used by the legacy model, but the Bull regime stays off until the app has a contiguous nine-session same-source history. Missing or stale breadth is never replaced with proxy data.
             </AlertDescription>
           </Alert>
+        )}
+
+        {(data?.health.notes?.length ?? 0) > 0 && (
+          <div className="rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            {data?.health.notes.map((note) => <div key={note}>{note}</div>)}
+          </div>
         )}
 
         {isLoading && !data ? (
