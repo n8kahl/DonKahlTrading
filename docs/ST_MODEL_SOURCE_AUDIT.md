@@ -52,47 +52,93 @@ The workbook does **not** contain a live connection for `NHNL!B:C`.
 - Column C is Nasdaq new lows.
 - The values are static/pasted workbook values.
 - There are no workbook external links or query connections supplying B:C.
-- The last populated source row is **2024-02-15** (`230` new highs, `64` new lows).
+- The last populated source row is labelled **2024-02-15** (`230` new highs, `64` new lows).
 - Later dated rows exist but the NH/NL source cells are blank.
 
-Therefore there is no live spreadsheet datasource to mirror for NH/NL. The correct problem is to identify or reconstruct the original breadth methodology and prove it against historical workbook values.
+The formulas consume the raw counts as:
 
-## NH/NL reconstruction lane
+`x[t] = newHighs[t] - newLows[t]`
 
-`fixtures/nhnl-workbook-samples.json` banks ten known workbook dates from 2024-02-02 through 2024-02-15 as a golden parity set.
+and use the nine-session weighted average `(9*x[t] + ... + 1*x[t-8]) / 45`, with Bear below `-12`, Bull above `0`, and otherwise prior-state carry.
 
-`lib/st-model/nhnl-research.ts` provides a research-only candidate reconstruction and exact comparison harness. It is intentionally not imported by the live API.
+## Massive reconstruction result — rejected for parity
 
-`scripts/research-nhnl-parity.mjs` is the reproducible Massive-backed research runner. It:
+`fixtures/nhnl-workbook-samples.json` banks ten known workbook rows from 2024-02-02 through 2024-02-15 as a golden evidence set.
 
-1. retrieves the historical active XNAS common-stock universe at the final golden-fixture date;
-2. retrieves SPY trading dates for the required lookback window;
-3. downloads/caches Massive grouped US daily aggregates for those sessions;
-4. keeps only the historical Nasdaq common-stock universe;
-5. sweeps plausible candidate definitions (intraday vs close, full-history vs shorter-history eligibility);
-6. compares every candidate against the workbook's exact high/low counts;
-7. exits non-zero if no candidate reproduces every golden row exactly.
+The reproducible `npm run research:nhnl` runner was executed in an isolated Railway service using the existing Massive entitlement. The run used:
 
-The command is:
+- **3,302** active XNAS common stocks at 2024-02-15;
+- **3,300** symbols with usable grouped history;
+- **305** trading sessions from 2022-11-29 through 2024-02-15.
 
-```bash
-MASSIVE_API_KEY=... npm run research:nhnl
-```
+Four candidate definitions were tested. None reproduced a single golden row exactly:
 
-The runner is not executed in CI because it performs hundreds of licensed historical-data requests. CI syntax-checks it with `node --check`.
+| Candidate | Exact rows | Total absolute count delta |
+|---|---:|---:|
+| 252-session close, partial history allowed | 0 / 10 | 733 |
+| 252-session intraday high/low, partial history allowed | 0 / 10 | 1058 |
+| 252-session close, require 252 observations | 0 / 10 | 1187 |
+| 252-session intraday high/low, require 252 observations | 0 / 10 | 1423 |
 
-Initial Massive reference-universe research for **2024-02-15** returned **3,302 active XNAS common stocks**. The workbook contains a `3400` Nasdaq-universe constant. The proximity makes full-universe reconstruction plausible, but it is not evidence of parity by itself.
+Therefore a home-grown full-Nasdaq Massive calculation is **not** accepted as the legacy NH/NL source. The research code remains non-production evidence tooling.
 
-A candidate NH/NL source may be promoted to the live Bull regime only after its historical counts reproduce the workbook fixture to the agreed parity standard. Until then, NH/NL remains explicitly gated.
+## Source identification — WSJ / Dow Jones Market Data
 
-### Official Nasdaq option
+Historical source fingerprinting found multiple exact matches between the workbook's pasted counts and the **Wall Street Journal / Dow Jones Market Data** Nasdaq Market Diary numbers. Examples include:
 
-Nasdaq's Fundamental Data product is another strong candidate because it supplies Nasdaq-listed issue metadata plus daily high/low and 52-week high/low data on a T+1 basis. It is a licensed subscription product. If Massive reconstruction cannot match the workbook fixture, this should be evaluated before accepting a proxy breadth methodology.
+- workbook `2024-02-05`: **91 new highs / 212 new lows** — exact match to the following WSJ Market Digest for that completed session;
+- workbook `2024-02-07`: **237 / 147** — exact match to the following WSJ Market Digest;
+- workbook tail value **230 / 64** also appears in the WSJ/Dow Jones series, although the workbook's final manually pasted date appears potentially one session misaligned.
+
+This is stronger evidence than the rejected constituent reconstruction: the workbook was manually maintained, so labels/dates at the tail are not treated as more authoritative than the source-value fingerprint itself.
+
+The currently reachable WSJ Market Diary web JSON endpoint is:
+
+`https://www.wsj.com/market-data/stocks/marketsdiary?id={"application":"WSJ","marketsDiaryType":"diaries"}&type=mdc_marketsdiary`
+
+A clean GitHub-hosted probe on 2026-09-15 returned HTTP 200 JSON without credentials and identified:
+
+- exchange: `NASDAQ`
+- latest new highs: **72**
+- latest new lows: **402**
+- source timestamp: **Monday, September 14, 2026**
+
+The response also carries `previousClose` and `weekAgo`, but those values are **not used to seed production history**. Cross-checks showed that revision/snapshot semantics can differ from separately published Dow Jones final-market-diary values. Mixing those variants would defeat the parity objective.
+
+Historical query experiments (`date=` in several formats, past-calendar-style parameters, and a date inside the endpoint's `id` object) were also tested from a clean runner. Every variant returned the same current snapshot. The web JSON route therefore does not provide an accepted historical backfill mechanism.
+
+### Runtime decision for WSJ breadth
+
+The draft implementation now contains a fail-closed adapter for the current WSJ/Dow Jones Nasdaq Market Diary snapshot and a persistent snapshot table keyed by **date + source variant**.
+
+Rules:
+
+1. persist only the live endpoint's `latestClose` high/low pair for its own source timestamp;
+2. never seed history from `previousClose`, `weekAgo`, Massive reconstruction, ETF proxy breadth, or a differently revised Dow Jones series;
+3. require **nine contiguous completed market sessions** from the same source variant before the NH/NL regime can become available;
+4. a missing trading-session snapshot breaks the contiguous suffix and forces warm-up again;
+5. align the breadth through-date to the completed QQQ trading calendar before computing the regime;
+6. malformed, unavailable, stale, or gapped source data fails closed and keeps Bull gated.
+
+The UI/API reports the current breadth through-date, source mode, warm-up progress, and missing sessions.
+
+### Operational caveat
+
+The WSJ JSON route is a public web data endpoint, not a contracted Tucson Trader API entitlement. The draft branch therefore treats it as an externally controlled dependency with schema validation, timeouts, persistence, provenance, and fail-closed behavior. It should remain monitored and replaceable. If unattended application use cannot be accepted for the intended deployment, the same adapter boundary must be backed by a licensed Dow Jones/FactSet/Nasdaq source rather than weakening the data contract.
+
+## Automatic collection
+
+`scripts/snapshot-wsj-breadth.mjs` is a standalone after-market collector. It fetches the current WSJ Nasdaq Market Diary pair and upserts one row into `st_breadth_snapshots` using the explicit `wsj-market-diary-live-v1` variant.
+
+The intended deployment is a no-domain Railway scheduled service that shares only the database connection needed for persistence. It does not need the Massive key. The main `/api/st-model` route also opportunistically upserts the current source snapshot when called, so the scheduled collector and normal app traffic are idempotent backups for one another.
+
+The scheduled collector is not to be pointed at Dad's production service until this draft PR's database/schema path has passed CI and the deployment plan is reviewed.
 
 ## Source hierarchy for native ST Model
 
-1. Same instrument and same calculation semantics as the workbook.
-2. Licensed/documented provider APIs suitable for unattended application use.
-3. Explicit provenance and freshness in the API/UI.
-4. Missing exact data fails closed.
-5. No silent proxy substitution and no undocumented scraping endpoint in a trading decision path.
+1. Same instrument/metric and same calculation semantics as the workbook.
+2. Explicit source and variant identity; never mix revision families silently.
+3. Prefer licensed/documented provider APIs suitable for unattended use.
+4. If a public web source is used during parity/observation work, validate schema, persist provenance, monitor it, and fail closed on drift.
+5. Missing exact data fails closed.
+6. No silent proxy substitution.
