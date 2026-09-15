@@ -76,22 +76,48 @@ function Metric({ label, value }: { label: string; value: string }) {
 function SymbolCard({ symbol, point, lastSignal }: { symbol: string; point?: STSignalPoint; lastSignal?: STSignalPoint }) {
   const signals = activeSignals(point)
   const lastSignals = activeSignals(lastSignal)
+  const hasPoint = Boolean(point)
   const hasSignal = signals.length > 0
+  const status = !hasPoint ? 'Data unavailable' : hasSignal ? 'Signal active' : 'No signal today'
 
   return (
-    <article className={cn('min-w-0 rounded-lg border bg-card p-4', hasSignal ? 'border-emerald-500/50' : 'border-border')}>
+    <article
+      className={cn(
+        'min-w-0 rounded-lg border bg-card p-4',
+        hasSignal ? 'border-emerald-500/50' : !hasPoint ? 'border-amber-500/40' : 'border-border'
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold tracking-tight">{symbol}</h3>
-          <div className={cn('mt-1 text-sm font-medium', hasSignal ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
-            {hasSignal ? 'Signal active' : 'No signal today'}
+          <div
+            className={cn(
+              'mt-1 text-sm font-medium',
+              hasSignal && 'text-emerald-600 dark:text-emerald-400',
+              !hasPoint && 'text-amber-600 dark:text-amber-400',
+              hasPoint && !hasSignal && 'text-muted-foreground'
+            )}
+          >
+            {status}
           </div>
         </div>
-        {hasSignal ? <Sparkles className="h-5 w-5 shrink-0 text-emerald-500" /> : <CircleMinus className="h-5 w-5 shrink-0 text-muted-foreground/60" />}
+        {hasSignal ? (
+          <Sparkles className="h-5 w-5 shrink-0 text-emerald-500" />
+        ) : !hasPoint ? (
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+        ) : (
+          <CircleMinus className="h-5 w-5 shrink-0 text-muted-foreground/60" />
+        )}
       </div>
 
       <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">
-        {signals.length ? signals.map((signal) => signalPill(signal)) : <span className="text-xs text-muted-foreground">Std — · Alt — · Bull —</span>}
+        {!hasPoint ? (
+          <span className="text-xs text-amber-600 dark:text-amber-400">No model-date bar for this symbol.</span>
+        ) : signals.length ? (
+          signals.map((signal) => signalPill(signal))
+        ) : (
+          <span className="text-xs text-muted-foreground">Std — · Alt — · Bull —</span>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border/60 pt-3">
