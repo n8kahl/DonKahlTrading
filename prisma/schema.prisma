@@ -140,7 +140,6 @@ model UserPreferences {
 // =============================================================================
 
 model StBreadthSnapshot {
-  id              String   @id @default(cuid())
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -156,7 +155,7 @@ model StBreadthSnapshot {
   sourceTimestamp String?
   capturedAt      DateTime
 
-  @@unique([date, variant])
+  @@id([date, variant])
   @@index([variant, date])
   @@map("st_breadth_snapshots")
 }
