@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import {
   buildResponseMeta,
-  fetchDailyBars,
   fetchMarketStatus,
   type DailyBar,
 } from '@/lib/massive-api'
@@ -17,6 +16,7 @@ import {
   computeSTModel,
   type STDailyBar,
 } from '@/lib/st-model'
+import { fetchWorkbookDailyBars } from '@/lib/st-model/workbook-data'
 
 const FETCH_BARS = 600
 const MAX_CONCURRENCY = 5
@@ -50,7 +50,7 @@ async function fetchInBatches(symbols: string[], marketOpen: boolean): Promise<R
   const out: Record<string, STDailyBar[]> = {}
   for (let start = 0; start < symbols.length; start += MAX_CONCURRENCY) {
     const batch = symbols.slice(start, start + MAX_CONCURRENCY)
-    const settled = await Promise.allSettled(batch.map((symbol) => fetchDailyBars(symbol, FETCH_BARS)))
+    const settled = await Promise.allSettled(batch.map((symbol) => fetchWorkbookDailyBars(symbol, FETCH_BARS)))
     settled.forEach((result, index) => {
       const symbol = batch[index]
       out[symbol] = result.status === 'fulfilled' ? toSTBars(result.value, marketOpen) : []
@@ -121,6 +121,7 @@ export async function GET(request: NextRequest) {
         workbookParity: 'formula-faithful-v1',
         specVersion: ST_MODEL_SPEC_VERSION,
         sourceWorkbookSha256: ST_MODEL_REFERENCE_SHA256,
+        dbE: 'same-workbook-instruments; IXF resolved as I:IXF; unavailable instruments fail closed',
         nhnl: 'unavailable-not-substituted',
         partialDailyBarPolicy: marketOpen ? 'current session excluded' : 'latest returned daily bar accepted',
       },
