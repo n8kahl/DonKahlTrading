@@ -21,7 +21,8 @@ export const DEFAULT_CHECKUP_MODEL = 'claude-opus-5-5'
 const MAX_TABS = 12
 const MAX_COLUMNS_PER_TAB = 40
 const MAX_FINDINGS = 60
-const AI_TIMEOUT_MS = 90_000
+// A 20-finding workbook took about a minute in testing; leave room for larger ones.
+const AI_TIMEOUT_MS = 150_000
 
 export const explanationSchema = z.object({
   summary: z.string().describe('Exactly three sentences saying what this spreadsheet does, for its owner.'),

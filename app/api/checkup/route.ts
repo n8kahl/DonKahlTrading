@@ -6,7 +6,7 @@ import { CHECKUP_RATE_LIMIT, PASSCODE_HEADER, checkPasscode } from '@/lib/checku
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 180
+export const maxDuration = 240
 
 function fail(message: string, status: number, code: string) {
   return NextResponse.json({ error: message, code }, { status })

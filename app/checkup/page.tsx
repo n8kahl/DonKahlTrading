@@ -15,7 +15,7 @@ const PASSCODE_KEY = 'tucson-trader-checkup-passcode'
 const STAGES = [
   'Opening the workbook…',
   'Checking every formula, row by row…',
-  'Writing it up in plain words. This can take up to a minute…',
+  'Writing it up in plain words. This usually takes about a minute…',
 ]
 
 function loadPasscode(): string {
