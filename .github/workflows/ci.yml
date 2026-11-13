@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.57 cannot install Chromium on the ubuntu-26.04 image that ubuntu-latest now resolves to.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tucson_ci
@@ -47,8 +48,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Chromium for ST Model smoke test
+      - name: Install Chromium for browser smoke tests
         run: npx playwright install --with-deps chromium
 
-      - name: ST Model browser smoke
-        run: npx playwright test e2e/st-model.spec.ts
+      - name: ST Model and Market Signal browser smoke
+        run: npx playwright test e2e/st-model.spec.ts e2e/market-signal.spec.ts
