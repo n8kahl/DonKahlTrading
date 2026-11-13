@@ -3,7 +3,14 @@ import { withRateLimit } from '@/lib/rate-limit'
 import { CheckupError, MAX_UPLOAD_BYTES, checkWorkbook } from '@/lib/checkup'
 import { baseResult, explainCheckup, type Reference } from '@/lib/checkup/explain'
 import { MAX_COMPLAINT_CHARS, MAX_REFERENCE_CHARS, MAX_SCREENSHOT_BYTES, SCREENSHOT_TYPES } from '@/lib/checkup/limits'
-import { anthropicClient, repairConfigured, runsInLastDay, runsPerDay, startRepair } from '@/lib/checkup/repair/job'
+import {
+  anthropicClient,
+  deleteOldRepairs,
+  repairConfigured,
+  runsInLastDay,
+  runsPerDay,
+  startRepair,
+} from '@/lib/checkup/repair/job'
 import { CHECKUP_RATE_LIMIT, takeAiWriteUp } from '@/lib/checkup/guard'
 
 export const runtime = 'nodejs'
@@ -105,6 +112,12 @@ export async function POST(request: Request) {
         whyNoRepair = 'Today’s allowance of repairs has been used, so this is a report only. Try again tomorrow for a fixed copy.'
       } else {
         const { jobId } = await startRepair(client, { bytes, fileName: file.name, complaint, reference, analysis })
+        // Tidy up runs past their keeping period. Not awaited: it must never hold up or fail this one.
+        void deleteOldRepairs(client)
+          .then((n) => {
+            if (n > 0) console.log(`[checkup] removed ${n} old repair run${n === 1 ? '' : 's'}`)
+          })
+          .catch((error) => console.error('[checkup] clean-up failed:', error instanceof Error ? error.message : error))
         console.log(`[checkup] repair ${jobId} started: ${Math.round(file.size / 1024)} KB, ${analysis.problems.length} problems, ${analysis.questions.length} questions`)
         return NextResponse.json(
           { mode: 'repair', jobId, fileName: file.name, flagged: analysis.problems.length + analysis.questions.length },

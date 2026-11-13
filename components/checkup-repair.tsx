@@ -153,7 +153,8 @@ export function RepairResults({ jobId, result, onReset }: { jobId: string; resul
               </Button>
               <p className="mt-3 text-base leading-relaxed text-muted-foreground">
                 The final test is to open it in Excel. Excel will work everything out again when it opens; then check that
-                the latest row reads the way this page says. Keep your original until you are happy.
+                the latest row reads the way this page says. Keep your original until you are happy. Download it now:
+                the fixed copy is only kept here for about a week.
               </p>
             </div>
           </div>

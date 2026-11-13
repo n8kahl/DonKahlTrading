@@ -68,7 +68,7 @@ How it works:
 
 A repair takes minutes, so `POST /api/checkup` starts a job and returns its id, `GET /api/checkup/[id]` reports progress and then the result, and `GET /api/checkup/[id]/file` serves the fixed copy. The job id is the agent session's id; nothing is stored on this server.
 
-What leaves this server: the whole workbook, the owner's sentence and any reference text or screenshot are sent to Anthropic. Sessions and uploaded files stay on Anthropic's side until they are deleted (see the pull request for details).
+What leaves this server: the whole workbook, the owner's sentence and any reference text or screenshot are sent to Anthropic. They are removed after `CHECKUP_KEEP_DAYS` (7 by default): uploaded files carry an expiry and remove themselves, and each run's session (its transcript, sandbox, fixed copy and report) is deleted the next time a check-up starts after it has passed that age. There is no timer on this server, so on a quiet week run `npx tsx --env-file=.env.local scripts/checkup-jobs.ts --cleanup` if it matters. After removal the fixed copy can no longer be downloaded.
 
 Limits (the page has no sign-in):
 
@@ -78,6 +78,7 @@ Limits (the page has no sign-in):
 | `CHECKUP_RUNS_PER_DAY` | 5 | Repairs allowed in any 24 hours, across all visitors. 0 switches repairs off |
 | `CHECKUP_RUN_BUDGET_CENTS` | 800 | Hard spend ceiling for one repair, in US cents at list prices |
 | `CHECKUP_RUN_MINUTES` | 30 | A repair still running after this long is stopped |
+| `CHECKUP_KEEP_DAYS` | 7 | Days a run's data is kept on Anthropic's side. 0 keeps it until someone deletes it; 90 is the most |
 | `CHECKUP_AGENT_MODEL` | `claude-opus-5-5` | Model the repair agent runs on |
 | `CHECKUP_AI_PER_HOUR` | 10 | Hourly cap on the cheaper report-only write-up (used when no repair can run) |
 | `CHECKUP_AGENT_ID`, `CHECKUP_ENVIRONMENT_ID` | – | Optional: pin an existing agent and sandbox instead of looking them up by name |

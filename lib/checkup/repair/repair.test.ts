@@ -11,6 +11,7 @@ import {
   fixedWorkbook,
   isJobId,
   progressNotes,
+  deleteOldRepairs,
   repairStatus,
   resetAgentCache,
   runsInLastDay,
@@ -42,7 +43,9 @@ function fake() {
     sessions: new Map<string, Any>(),
     events: new Map<string, Any[]>(),
     outputs: new Map<string, { id: string; filename: string; bytes: Uint8Array }[]>(),
-    uploads: [] as { id: string; name: string }[],
+    uploads: [] as { id: string; name: string; expires?: number }[],
+    deleted: [] as string[],
+    deletedFiles: [] as string[],
     calls: { agentCreate: 0, agentUpdate: 0, environmentCreate: 0, sent: [] as Any[] },
     createdSession: null as Any,
   }
@@ -75,12 +78,16 @@ function fake() {
         },
       },
       files: {
-        upload: async ({ file }: Any) => {
+        upload: async ({ file, expires_in_seconds }: Any) => {
           const id = `file_${++n}`
-          state.uploads.push({ id, name: file.name })
+          state.uploads.push({ id, name: file.name, expires: expires_in_seconds })
           return { id }
         },
         list: ({ scope_id }: Any) => listOf(state.outputs.get(scope_id) ?? []),
+        delete: async (id: string) => {
+          state.deletedFiles.push(id)
+          return { id, type: 'file_deleted' }
+        },
         download: async (id: string) => {
           for (const files of state.outputs.values()) {
             const f = files.find((x) => x.id === id)
@@ -98,6 +105,7 @@ function fake() {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             metadata: params.metadata,
+            resources: params.resources,
             usage: { list_cost: { amount: '312', currency: 'USD' } },
             outcome_evaluations: [{ result: 'pending' }],
           }
@@ -114,7 +122,19 @@ function fake() {
           if (!s) throw new Anthropic.NotFoundError(404, undefined, 'not found', new Headers())
           return s
         },
-        list: () => listOf([...state.sessions.values()]),
+        list: (params?: Any) =>
+          listOf(
+            [...state.sessions.values()].filter(
+              (x) =>
+                (!params?.['created_at[gte]'] || x.created_at >= params['created_at[gte]']) &&
+                (!params?.['created_at[lte]'] || x.created_at <= params['created_at[lte]'])
+            )
+          ),
+        delete: async (id: string) => {
+          state.deleted.push(id)
+          state.sessions.delete(id)
+          return { id, type: 'session_deleted' }
+        },
         events: {
           list: async (id: string, params: Any) => {
             let events = [...(state.events.get(id) ?? [])]
@@ -209,6 +229,8 @@ describe('starting a repair', () => {
     const { jobId } = await startRepair(client, input)
     expect(isJobId(jobId)).toBe(true)
     expect(state.uploads.map((u) => u.name)).toEqual(['workbook.xlsx', 'reference.png'])
+    // Uploads remove themselves from Anthropic's side after a week
+    expect(state.uploads.map((u) => u.expires)).toEqual([604800, 604800])
 
     const created = state.createdSession
     expect(created.budget).toEqual({ type: 'limit', max_list_cost: { amount: '650', currency: 'USD' } })
@@ -326,6 +348,41 @@ describe('following a repair', () => {
     await startRepair(client, input)
     state.sessions.set('sesn_other', { id: 'sesn_other', metadata: { app: 'another-app' } })
     expect(await runsInLastDay(client)).toBe(2)
+  })
+})
+
+describe('removing old runs', () => {
+  const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString()
+
+  it('deletes this app\'s runs older than a week and nothing else', async () => {
+    const { client, state } = fake()
+    const fresh = (await startRepair(client, input)).jobId
+    const old = (await startRepair(client, input)).jobId
+    const oldButRunning = (await startRepair(client, input)).jobId
+    state.sessions.get(old).created_at = daysAgo(8)
+    state.sessions.get(old).status = 'idle'
+    state.sessions.get(oldButRunning).created_at = daysAgo(8)
+    state.sessions.set('sesn_notours', { id: 'sesn_notours', status: 'idle', created_at: daysAgo(30), metadata: { app: 'another-app' } })
+
+    expect(await deleteOldRepairs(client)).toBe(1)
+    expect(state.deleted).toEqual([old])
+    // ...along with the workbook and screenshot that were uploaded for it
+    expect(state.deletedFiles).toHaveLength(2)
+    expect(state.sessions.has(fresh)).toBe(true)
+    expect(state.sessions.has('sesn_notours')).toBe(true)
+    // A removed run is simply not found afterwards
+    expect(await repairStatus(client, old)).toMatchObject({ state: 'failed', code: 'not-found' })
+  })
+
+  it('keeps everything when the keeping period is switched off', async () => {
+    const { client, state } = fake()
+    vi.stubEnv('CHECKUP_KEEP_DAYS', '0')
+    const { jobId } = await startRepair(client, input)
+    state.sessions.get(jobId).created_at = daysAgo(400)
+    state.sessions.get(jobId).status = 'idle'
+    expect(await deleteOldRepairs(client)).toBe(0)
+    expect(state.deleted).toEqual([])
+    expect(state.uploads.every((u) => u.expires === undefined)).toBe(true)
   })
 })
 

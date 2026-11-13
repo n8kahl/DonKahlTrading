@@ -425,7 +425,8 @@ export default function CheckupPage() {
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" aria-hidden />
               <span>
                 Your original file is never changed; you get a separate fixed copy to download. To do the work, your whole
-                workbook and anything you add above are sent to Claude, an AI service run by Anthropic.
+                workbook and anything you add above are sent to Claude, an AI service run by Anthropic, and removed from
+                there after about a week.
               </span>
             </p>
           </>

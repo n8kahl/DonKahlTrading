@@ -1,10 +1,16 @@
 // List recent repair jobs with their state, cost and duration (no workbook contents).
 //   npx tsx --env-file=.env.local scripts/checkup-jobs.ts [how many]
+//   npx tsx --env-file=.env.local scripts/checkup-jobs.ts --cleanup   (delete runs past CHECKUP_KEEP_DAYS)
 import { APP_TAG } from '../lib/checkup/repair/agent-config'
-import { anthropicClient, repairStatus } from '../lib/checkup/repair/job'
+import { anthropicClient, deleteOldRepairs, keepDays, repairStatus } from '../lib/checkup/repair/job'
 
 async function main() {
   const client = anthropicClient()
+  if (process.argv.includes('--cleanup')) {
+    const n = await deleteOldRepairs(client, 200)
+    console.log(`deleted ${n} repair run${n === 1 ? '' : 's'} older than ${keepDays()} days`)
+    return
+  }
   const limit = Number(process.argv[2] ?? 5)
   let n = 0
   for await (const s of client.beta.sessions.list()) {

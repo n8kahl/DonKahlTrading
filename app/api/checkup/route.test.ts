@@ -6,6 +6,7 @@ const job = vi.hoisted(() => ({
   runsInLastDay: vi.fn(async () => 0),
   runsPerDay: vi.fn(() => 5),
   startRepair: vi.fn(async () => ({ jobId: 'sesn_test123456' })),
+  deleteOldRepairs: vi.fn(async () => 0),
   anthropicClient: vi.fn(() => ({})),
   repairStatus: vi.fn(),
   fixedWorkbook: vi.fn(),
@@ -68,6 +69,8 @@ describe('POST /api/checkup', () => {
     expect(input.complaint).toBe("My dad says some formulas aren't working")
     expect(input.reference.text).toBe('Net = ups minus downs.')
     expect(input.analysis.problems).toHaveLength(9)
+    // Starting a run also tidies up runs past their keeping period
+    expect(job.deleteOldRepairs).toHaveBeenCalled()
   })
 
   it('falls back to a plain report when today\'s repairs are used up', async () => {

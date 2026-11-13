@@ -48,12 +48,17 @@ export const runBudgetCents = () => intEnv('CHECKUP_RUN_BUDGET_CENTS', 800, 50)
 export const runMinutes = () => intEnv('CHECKUP_RUN_MINUTES', 30, 2)
 /** Repairs allowed in any 24 hours, across all visitors. */
 export const runsPerDay = () => intEnv('CHECKUP_RUNS_PER_DAY', 5, 0)
+/** Days a run's data is kept on Anthropic's side before it is removed. 0 keeps it until someone deletes it. */
+export const keepDays = () => Math.min(90, intEnv('CHECKUP_KEEP_DAYS', 7, 0))
 /** How many times the grader may send the work back. */
 const maxIterations = () => intEnv('CHECKUP_MAX_ITERATIONS', 3, 1)
 
 export function repairConfigured(): boolean {
   return Boolean(process.env.ANTHROPIC_API_KEY) && runsPerDay() > 0
 }
+
+/** Results of finished jobs, so repeat requests do not download and re-check the file again. */
+const finished = new Map<string, RepairResult>()
 
 let sharedClient: Anthropic | null = null
 export function anthropicClient(): Anthropic {
@@ -172,6 +177,45 @@ export async function runsInLastDay(client: Anthropic): Promise<number> {
 }
 
 // -----------------------------------------------------------------------------
+// Removing old runs
+// -----------------------------------------------------------------------------
+
+/**
+ * Delete this app's repair sessions that are older than the keeping period. Deleting a session
+ * removes its transcript, its sandbox and the files it wrote (the fixed copy and the report).
+ * There is no timer on this server, so this runs whenever a new check-up starts: an old run
+ * stays until the page is next used. Returns how many were deleted.
+ */
+export async function deleteOldRepairs(client: Anthropic, limit = 25): Promise<number> {
+  const days = keepDays()
+  if (days <= 0) return 0
+  const { agentId } = await ensureAgent(client)
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+  const old: { id: string; uploads: string[] }[] = []
+  for await (const session of client.beta.sessions.list({ agent_id: agentId, 'created_at[lte]': cutoff })) {
+    if (session.metadata?.app !== APP_TAG) continue
+    if (session.status === 'running' || session.status === 'rescheduling') continue
+    const uploads = (session.resources ?? []).flatMap((r) => (r.type === 'file' ? [r.file_id] : []))
+    old.push({ id: session.id, uploads })
+    if (old.length >= limit) break
+  }
+  let deleted = 0
+  for (const { id, uploads } of old) {
+    try {
+      // The uploaded workbook and screenshot normally expire by themselves; delete them here too
+      // in case they were uploaded without an expiry or with a longer one.
+      for (const fileId of uploads) await client.beta.files.delete(fileId).catch(() => undefined)
+      await client.beta.sessions.delete(id)
+      finished.delete(id)
+      deleted++
+    } catch {
+      // Already gone, or busy: it will be picked up next time.
+    }
+  }
+  return deleted
+}
+
+// -----------------------------------------------------------------------------
 // Starting a job
 // -----------------------------------------------------------------------------
 
@@ -265,8 +309,12 @@ export async function startRepair(client: Anthropic, input: StartInput): Promise
   const { agentId, agentVersion, environmentId } = await ensureAgent(client)
   const before = snapshotBefore(input.analysis, partManifest(input.bytes))
 
+  // Uploaded files expire on Anthropic's side by themselves; the session and what it wrote are
+  // removed by deleteOldRepairs().
+  const expiry = keepDays() > 0 ? { expires_in_seconds: keepDays() * 24 * 60 * 60 } : {}
   const workbook = await client.beta.files.upload({
     file: await toFile(Buffer.from(input.bytes), 'workbook.xlsx', { type: XLSX_MIME }),
+    ...expiry,
   })
   const resources: Anthropic.Beta.Sessions.SessionCreateParams['resources'] = [
     { type: 'file', file_id: workbook.id, mount_path: '/workbook.xlsx' },
@@ -278,6 +326,7 @@ export async function startRepair(client: Anthropic, input: StartInput): Promise
     const ext = IMAGE_EXTENSIONS[image.mediaType] ?? 'png'
     const uploaded = await client.beta.files.upload({
       file: await toFile(Buffer.from(image.bytes), `reference.${ext}`, { type: image.mediaType }),
+      ...expiry,
     })
     resources.push({ type: 'file', file_id: uploaded.id, mount_path: `/reference.${ext}` })
     imagePath = `${REFERENCE_IMAGE_DIR}/reference.${ext}`
@@ -414,8 +463,6 @@ async function readBefore(client: Anthropic, jobId: string): Promise<BeforeSnaps
   return null
 }
 
-const finished = new Map<string, RepairResult>()
-
 function remember(jobId: string, result: RepairResult): void {
   finished.set(jobId, result)
   if (finished.size > 30) finished.delete(finished.keys().next().value as string)
@@ -449,7 +496,7 @@ export async function repairStatus(client: Anthropic, jobId: string): Promise<Re
   if (cached) return { state: 'done', result: cached }
 
   const session = await loadSession(client, jobId)
-  if (!session) return { state: 'failed', code: 'not-found', reason: 'That check-up could not be found. It may be too old; please start again.' }
+  if (!session) return { state: 'failed', code: 'not-found', reason: 'That check-up could not be found. Check-ups are removed after a while; please start again.' }
 
   const elapsedSeconds = Math.max(0, Math.round((Date.now() - Date.parse(session.created_at)) / 1000))
 
