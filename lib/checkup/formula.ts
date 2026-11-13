@@ -265,10 +265,29 @@ function sign(n: number): string {
   return n >= 0 ? `+${n}` : String(n)
 }
 
+/**
+ * Excel writes a range with its upper row first, so a filled-down `B$3:B9` reads `B2:B$3` on
+ * row 2: the same formula with its ends swapped. For comparing formulas, put the fixed end first.
+ */
+function fixedEndFirst(toks: PTok[]): PTok[] {
+  let out: PTok[] | null = null
+  for (let i = 0; i + 2 < toks.length; i++) {
+    const a = toks[i]
+    const colon = toks[i + 1]
+    const b = toks[i + 2]
+    if (a.t !== 'ref' || b.t !== 'ref' || colon.t !== 'op' || colon.v !== ':') continue
+    if (a.rowAbs || !b.rowAbs || b.sheet !== '' || a.col !== b.col || a.colAbs !== b.colAbs) continue
+    if (!out) out = [...toks]
+    out[i] = { ...a, rowAbs: true, row: b.row }
+    out[i + 2] = { ...b, rowAbs: false, row: a.row }
+  }
+  return out ?? toks
+}
+
 /** Exact row-relative pattern. Two cells with the same key hold "the same formula". */
 export function patternKey(toks: PTok[]): string {
   let s = ''
-  for (const t of toks) {
+  for (const t of fixedEndFirst(toks)) {
     switch (t.t) {
       case 'ws':
         break
@@ -291,7 +310,7 @@ export function patternKey(toks: PTok[]): string {
 /** Pattern with relative row offsets blanked: equal shapes differ only in which rows they read. */
 export function shapeKey(toks: PTok[]): string {
   let s = ''
-  for (const t of toks) {
+  for (const t of fixedEndFirst(toks)) {
     switch (t.t) {
       case 'ws':
         break
@@ -314,7 +333,7 @@ export function shapeKey(toks: PTok[]): string {
 /** Pattern with every reference blanked: equal skeletons do the same job on different inputs. */
 export function skeletonKey(toks: PTok[]): string {
   let s = ''
-  for (const t of toks) {
+  for (const t of fixedEndFirst(toks)) {
     switch (t.t) {
       case 'ws':
         break

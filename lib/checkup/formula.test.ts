@@ -42,6 +42,14 @@ describe('row-relative patterns', () => {
     expect(key('MAX(B$2:B14)', 14)).not.toBe(key('MAX(B$3:B14)', 14))
   })
 
+  it('treats a range whose ends Excel has swapped as the same formula', () => {
+    // Filled down from row 2, SUM(B$3:Bn) reads SUM(B2:B$3) on row 2 because Excel puts the upper row first.
+    expect(key('SUM(B2:B$3)', 2)).toBe(key('SUM(B$3:B40)', 40))
+    expect(key('SUM(B2:B$3)', 2)).not.toBe(key('SUM(B$4:B40)', 40))
+    // The formula is still written back exactly as it was read
+    expect(renderFormula(parseFormula('SUM(B2:B$3)', 2), 2)).toBe('SUM(B2:B$3)')
+  })
+
   it('handles sheet names, whole columns and text that looks like a cell', () => {
     const f = `IFERROR(_xlfn.XLOOKUP($A7,'Nasdaq Data'!$A:$A,'Nasdaq Data'!$B:$B,"A1"),"")`
     const toks = parseFormula(f, 7)
