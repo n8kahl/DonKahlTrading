@@ -56,6 +56,19 @@ Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
 - `POST /api/share` - Creates a shareable dashboard snapshot
 - `GET /api/dashboard/[id]` - Retrieves a shared dashboard
 
+## Spreadsheet check-up
+
+`/checkup` takes one `.xlsx` workbook (up to 10 MB), says in plain words what it does, and lists what is wrong with it: formulas that read the wrong row, blank or typed-over cells in a column of formulas, rows that use a different formula from the rest of their column, error cells, and colour rules that cover only part of a column. Where two formulas share a column and neither is clearly the main one, it asks instead of guessing.
+
+- The workbook is read in memory by `POST /api/checkup`. It is never written to disk or the database and never re-saved.
+- The checks are plain code in `lib/checkup/` (no AI). Claude only rewrites the wording, and is sent the workbook's structure (tab names, headings, one formula per pattern, a few sample values) rather than its contents. If that call fails, the findings are shown with built-in wording.
+- Environment variables:
+  - `CHECKUP_PASSCODE` (required): shared passcode the page asks for. The route refuses every upload until this is set.
+  - `ANTHROPIC_API_KEY`: enables the plain-language write-up.
+  - `CHECKUP_MODEL` (optional): Claude model for the write-up. Defaults to `claude-opus-5-5`.
+- Try it without a real workbook: upload `fixtures/spreadsheet-checkup-sample.xlsx`, a made-up file with one of each fault (rebuild it with `npx tsx scripts/make-checkup-fixture.ts`).
+- From the command line: `npx tsx scripts/checkup-cli.ts path/to/workbook.xlsx` (add `--explain` for the Claude wording).
+
 ## Project Structure
 
 ```
