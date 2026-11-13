@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { checkWorkbook } from './index'
-import { DEFAULT_CHECKUP_MODEL, applyExplanation, baseResult, buildPromptPayload, explainCheckup, type Explanation } from './explain'
+import {
+  DEFAULT_CHECKUP_MODEL,
+  applyExplanation,
+  baseResult,
+  buildPromptPayload,
+  explainCheckup,
+  withoutOptionLetters,
+  type Explanation,
+} from './explain'
 import { buildSyntheticWorkbook } from './testing/synthetic-workbook'
 
 const bytes = buildSyntheticWorkbook()
@@ -77,6 +85,13 @@ describe('laying the wording over the findings', () => {
     })
     expect(stray.problems[0].recommended).toBeUndefined()
     expect(stray.questions[0].recommended).toBeUndefined()
+  })
+
+  it('never shows the reader the internal option letters', () => {
+    expect(withoutOptionLetters('Option a would count falling days; that is what option b avoids.')).toBe(
+      'The first version would count falling days; that is what the second version avoids.'
+    )
+    expect(withoutOptionLetters('A trader would pick a better option.')).toBe('A trader would pick a better option.')
   })
 
   it('falls back to the standard wording when the model uses jargon', () => {
