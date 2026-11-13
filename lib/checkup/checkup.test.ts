@@ -139,6 +139,26 @@ describe('synthetic workbook: every planted fault is found', () => {
   })
 })
 
+describe('start-up rows', () => {
+  it('does not call a shorter look-back window at the top of a column a slip', () => {
+    // Column B holds a 5-row rolling sum; rows 2-5 cannot look back 5 rows, so their window starts at row 2.
+    const rows = ['<row r="1"><c r="A1" t="inlineStr"><is><t>Value</t></is></c><c r="B1" t="inlineStr"><is><t>Sum of 5</t></is></c></row>']
+    for (let r = 2; r <= 40; r++) {
+      const from = Math.max(2, r - 4)
+      rows.push(`<row r="${r}"><c r="A${r}"><v>${r}</v></c><c r="B${r}"><f>SUM(A${from}:A${r})</f><v>0</v></c></row>`)
+    }
+    const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    const bytes = zipSync({
+      'xl/workbook.xml': strToU8(`<workbook ${NS} xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>`),
+      'xl/_rels/workbook.xml.rels': strToU8('<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'),
+      'xl/worksheets/sheet1.xml': strToU8(`<worksheet ${NS}><sheetData>${rows.join('')}</sheetData></worksheet>`),
+    })
+    const found = checkWorkbook(bytes)
+    expect(found.problems).toEqual([])
+    expect(found.questions).toEqual([])
+  })
+})
+
 describe('clean workbooks', () => {
   it('finds nothing in the same workbook without the faults', () => {
     const clean = checkWorkbook(buildSyntheticWorkbook({ clean: true }))

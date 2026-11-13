@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { withRateLimit } from '@/lib/rate-limit'
 import { CheckupError, MAX_UPLOAD_BYTES, checkWorkbook } from '@/lib/checkup'
 import { baseResult, explainCheckup, type Reference } from '@/lib/checkup/explain'
-import { MAX_REFERENCE_CHARS, MAX_SCREENSHOT_BYTES, SCREENSHOT_TYPES } from '@/lib/checkup/limits'
+import { MAX_COMPLAINT_CHARS, MAX_REFERENCE_CHARS, MAX_SCREENSHOT_BYTES, SCREENSHOT_TYPES } from '@/lib/checkup/limits'
+import { anthropicClient, repairConfigured, runsInLastDay, runsPerDay, startRepair } from '@/lib/checkup/repair/job'
 import { CHECKUP_RATE_LIMIT, takeAiWriteUp } from '@/lib/checkup/guard'
 
 export const runtime = 'nodejs'
@@ -15,11 +16,16 @@ function fail(message: string, status: number, code: string) {
 
 /**
  * POST /api/checkup
- * multipart/form-data with "file" (.xlsx up to 10 MB) and, optionally, background from the
- * author of the method the workbook follows: "context" (pasted text) and "screenshot" (one image).
+ * multipart/form-data with "file" (.xlsx up to 10 MB) and, optionally, "complaint" (what the
+ * owner says is wrong, one line), and background from the author of the method the workbook
+ * follows: "context" (pasted text) and "screenshot" (one image).
  *
- * Everything is read from memory. Nothing is written to disk or to the database,
- * and the workbook is never re-saved.
+ * Runs the deterministic checks, then starts a repair job (a Managed Agents session) and
+ * returns its id for GET /api/checkup/[id] to follow. When no repair can be started (no key,
+ * today's allowance used up, or the start fails) it returns the findings in plain words instead.
+ *
+ * Nothing is written to this server's disk or database. The workbook is sent to Anthropic for
+ * the repair; the original is never changed.
  */
 export async function POST(request: Request) {
   // 1. Rate limit per address.
@@ -36,6 +42,7 @@ export async function POST(request: Request) {
 
   let file: File
   let contextText = ''
+  let complaint = ''
   let screenshot: File | null = null
   try {
     const form = await request.formData()
@@ -46,6 +53,8 @@ export async function POST(request: Request) {
     file = entry
     const context = form.get('context')
     if (typeof context === 'string') contextText = context.trim()
+    const said = form.get('complaint')
+    if (typeof said === 'string') complaint = said.trim().slice(0, MAX_COMPLAINT_CHARS)
     const shot = form.get('screenshot')
     if (shot instanceof File && shot.size > 0) screenshot = shot
   } catch {
@@ -72,34 +81,52 @@ export async function POST(request: Request) {
   }
 
   // 3. The checks: pure, in memory.
-  let result
+  let bytes: Uint8Array
+  let analysis
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    result = baseResult(file.name, file.size, checkWorkbook(bytes))
+    bytes = new Uint8Array(await file.arrayBuffer())
+    analysis = checkWorkbook(bytes)
   } catch (error) {
     if (error instanceof CheckupError) return fail(error.message, error.status, 'unreadable')
     console.error('[checkup] check failed:', error instanceof Error ? error.message : error)
     return fail('Something went wrong while reading that workbook. Nothing was saved; please try again.', 500, 'check-failed')
   }
 
-  // 4. Plain-language wording, within the hourly allowance. If the allowance is used up or the
-  //    call fails, the findings are returned with their standard wording.
-  let explained = result
-  if (!process.env.ANTHROPIC_API_KEY || takeAiWriteUp()) {
-    const reference: Reference = {}
-    if (contextText) reference.text = contextText
-    if (screenshot) reference.image = { bytes: new Uint8Array(await screenshot.arrayBuffer()), mediaType: screenshot.type }
-    explained = await explainCheckup(result, { reference })
-  } else {
-    explained = {
-      ...result,
-      aiNote:
-        'The plain-English write-up has been used a lot in the last hour, so the standard wording is shown. The findings themselves are complete; try again later for the fuller write-up.',
+  const reference: Reference = {}
+  if (contextText) reference.text = contextText
+  if (screenshot) reference.image = { bytes: new Uint8Array(await screenshot.arrayBuffer()), mediaType: screenshot.type }
+
+  // 4. Start the repair, if one may run.
+  let whyNoRepair = 'Fixing is not switched on, so this is a report only.'
+  if (repairConfigured()) {
+    try {
+      const client = anthropicClient()
+      if ((await runsInLastDay(client)) >= runsPerDay()) {
+        whyNoRepair = 'Today’s allowance of repairs has been used, so this is a report only. Try again tomorrow for a fixed copy.'
+      } else {
+        const { jobId } = await startRepair(client, { bytes, fileName: file.name, complaint, reference, analysis })
+        console.log(`[checkup] repair ${jobId} started: ${Math.round(file.size / 1024)} KB, ${analysis.problems.length} problems, ${analysis.questions.length} questions`)
+        return NextResponse.json(
+          { mode: 'repair', jobId, fileName: file.name, flagged: analysis.problems.length + analysis.questions.length },
+          { status: 202, headers: { 'Cache-Control': 'no-store' } }
+        )
+      }
+    } catch (error) {
+      console.error('[checkup] could not start a repair:', error instanceof Error ? error.message : error)
+      whyNoRepair = 'The repair could not be started this time, so this is a report only. Please try again in a little while.'
     }
   }
+
+  // 5. No repair: report what the checks found, in plain words where the write-up is available.
+  const result = baseResult(file.name, file.size, analysis)
+  let explained = result
+  if (!process.env.ANTHROPIC_API_KEY || takeAiWriteUp()) {
+    explained = await explainCheckup(result, { reference })
+  }
+  explained = { ...explained, aiNote: explained.aiNote ? `${whyNoRepair} ${explained.aiNote}` : whyNoRepair }
   console.log(
-    `[checkup] ${Math.round(file.size / 1024)} KB, ${explained.structure.sheets.length} tabs, ${explained.problems.length} problems, ${explained.questions.length} questions, ai=${explained.explainedByAI}, reference=${explained.usedReference}`
+    `[checkup] report only: ${Math.round(file.size / 1024)} KB, ${explained.problems.length} problems, ${explained.questions.length} questions, ai=${explained.explainedByAI}`
   )
 
-  return NextResponse.json(explained, { headers: { 'Cache-Control': 'no-store' } })
+  return NextResponse.json({ mode: 'report', result: explained }, { headers: { 'Cache-Control': 'no-store' } })
 }

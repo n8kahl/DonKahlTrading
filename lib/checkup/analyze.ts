@@ -380,7 +380,12 @@ function analyzeSheet(sheet: SheetModel): { findings: Finding[]; questions: Find
     // (c) rows of the main family, or of any settled family, that read the wrong row
     for (const f of col.families) {
       if (!f.hasCanon && !f.corrected) continue
-      const offenders = f.groups.filter((g) => g.key !== f.canonKey)
+      // Rows at the top where the column's formula would have to look above the first data row
+      // (a ten-row window on row 5, say) are start-up rows, not slips.
+      const offenders = f.groups
+        .filter((g) => g.key !== f.canonKey)
+        .map((g) => ({ ...g, rows: g.rows.filter((r) => !reachesAboveData(f.canon, r)) }))
+        .filter((g) => g.rows.length > 0)
       if (offenders.length === 0) continue
       const rows = offenders.flatMap((g) => g.rows).sort((x, y) => x - y)
       const before = offenders[0].toks
