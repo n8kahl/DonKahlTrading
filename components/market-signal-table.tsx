@@ -3,7 +3,6 @@
 import type {
   MarketSignalConfig,
   MarketSignalIndexConfig,
-  MarketSignalIndexPoint,
   MarketSignalRow,
   MarketSignalValue,
 } from '@/lib/market-signal'
@@ -17,9 +16,11 @@ export const SIGNAL_CLASS: Record<MarketSignalValue, string> = {
 }
 const UP_MOVE_CLASS = 'bg-[#16A34A] text-white'
 const DOWN_MOVE_CLASS = 'bg-[#DC2626] text-white'
-const TROUGH_CLASS = 'bg-[#15803D] text-white font-bold'
-const COUNT_ACTIVE_CLASS = 'bg-[#C6EFCE] text-[#006100]'
-const COUNT_NEW_CLASS = 'bg-[#FFFF00] text-black'
+export const BELOW_HIGH_CLASS = 'bg-[#15803D] text-white font-bold'
+const NET_POSITIVE_CLASS = 'bg-[#C6EFCE] text-[#006100]'
+const NET_NEW_CLASS = 'bg-[#FFFF00] text-black'
+// Not a workbook colour: marks a confirmed trough date.
+export const TROUGH_DATE_CLASS = 'bg-amber-200 text-black'
 
 const closeFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -38,12 +39,17 @@ export function rocClass(roc: number | null | undefined, threshold: number): str
   return ''
 }
 
-function countClass(point: MarketSignalIndexPoint | null, previous: MarketSignalIndexPoint | null | undefined): string {
-  const count = point?.bigMoves10d
-  if (count == null || count < 1) return ''
-  // Yellow marks the day the count first leaves zero, as in the workbook.
-  if (previous?.bigMoves10d === 0) return COUNT_NEW_CLASS
-  return COUNT_ACTIVE_CLASS
+export function formatNet(value: number | null | undefined): string {
+  if (value == null) return ''
+  return value > 0 ? `+${value}` : String(value)
+}
+
+export function netClass(net: number | null | undefined, previousNet?: number | null): string {
+  if (net == null || net === 0) return ''
+  if (net < 0) return DOWN_MOVE_CLASS
+  // Yellow marks the day the net count turns positive from zero, as in the workbook.
+  if (previousNet === 0) return NET_NEW_CLASS
+  return NET_POSITIVE_CLASS
 }
 
 const cell = 'h-8 border-r border-border/40 px-2 text-right text-xs tabular-nums whitespace-nowrap'
@@ -65,7 +71,9 @@ export function MarketSignalTable({
 }) {
   const windowDays = config.windowTradingDays
   const thresholdLabel = `${(config.moveThreshold * 100).toFixed(1)}%`
-  const troughLabel = `${Math.round(config.troughDepth * 100)}%`
+  const belowLabel = `${Math.round(config.belowHighDepth * 100)}%`
+  const swingLabel = `${Math.round(config.troughSwing * 100)}%`
+  const labelOf = (key: string) => indexes.find((index) => index.key === key)?.label ?? key
   // Newest first; each row keeps a reference to the previous trading row for the yellow highlight.
   const display = rows
     .map((row, index) => ({ row, previous: rows[index - 1] }))
@@ -82,12 +90,12 @@ export function MarketSignalTable({
             {indexes.map((index) => (
               <th key={index.key} colSpan={2} className={groupHead} title={`${index.name} (${index.providerSymbol})`}>{index.label}</th>
             ))}
-            <th colSpan={indexes.length} className={groupHead} title={`Days with a move of ${thresholdLabel} or more, up or down, in the last ${windowDays} trading days (workbook columns "10d net")`}>
-              {windowDays}d moves ≥ {thresholdLabel}
+            <th colSpan={indexes.length} className={groupHead} title={`Days up ${thresholdLabel} or more minus days down ${thresholdLabel} or more, over the last ${windowDays} trading days`}>
+              {windowDays}d net
             </th>
             <th colSpan={indexes.length} className={groupHead} title={`Trading days since the highest close since ${config.peakStartDate}`}>Days since high</th>
-            <th colSpan={indexes.length} className={groupHead} title={`Close at least ${troughLabel} below the highest close since ${config.peakStartDate}`}>{troughLabel} trough</th>
-            <th colSpan={indexes.length} className={groupHead} title={`Days up ${thresholdLabel} or more in the last ${windowDays} trading days`}>
+            <th colSpan={indexes.length} className={groupHead} title={`Close ${belowLabel} or more below the highest close since ${config.peakStartDate}`}>{belowLabel} below high</th>
+            <th colSpan={indexes.length} className={groupHead} title={`Days up ${thresholdLabel} or more in the last ${windowDays} trading days, before netting against down days (for reference)`}>
               {windowDays}d +{thresholdLabel} days
             </th>
           </tr>
@@ -96,15 +104,23 @@ export function MarketSignalTable({
               <th key={`${index.key}-close`} className={cn(subHead, 'border-l border-border')}>Close</th>,
               <th key={`${index.key}-roc`} className={subHead}>ROC</th>,
             ])}
-            {['moves', 'high', 'trough', 'positive'].flatMap((group) => indexes.map((index, position) => (
+            {['net', 'high', 'below', 'up'].flatMap((group) => indexes.map((index, position) => (
               <th key={`${group}-${index.key}`} className={cn(subHead, position === 0 && 'border-l border-border')}>{index.label}</th>
             )))}
           </tr>
         </thead>
         <tbody>
-          {display.map(({ row, previous }) => (
+          {display.map(({ row, previous }) => {
+            const troughLabels = config.troughIndexes.filter((key) => row.indexes[key]?.troughDate).map(labelOf)
+            return (
             <tr key={row.date} className="border-b border-border/50 hover:bg-muted/30">
-              <td className="sticky left-0 z-10 whitespace-nowrap bg-card px-3 py-1.5 text-xs font-medium tabular-nums">{row.date}</td>
+              <td
+                className={cn('sticky left-0 z-10 whitespace-nowrap px-3 py-1.5 text-xs font-medium tabular-nums', troughLabels.length ? TROUGH_DATE_CLASS : 'bg-card')}
+                title={troughLabels.length ? `${troughLabels.join(', ')} trough: lowest close of a ${swingLabel} decline, confirmed later by a ${swingLabel} rebound` : undefined}
+                data-trough={troughLabels.length ? 'true' : undefined}
+              >
+                {row.date}
+              </td>
               <td className={cn(cell, 'text-center', row.signal && SIGNAL_CLASS[row.signal])} data-signal={row.signal ?? ''}>{row.signal ?? ''}</td>
               {indexes.flatMap((index) => {
                 const point = row.indexes[index.key]
@@ -116,8 +132,8 @@ export function MarketSignalTable({
               {indexes.map((index) => {
                 const point = row.indexes[index.key]
                 return (
-                  <td key={`${index.key}-moves`} className={cn(cell, 'text-center', countClass(point, previous?.indexes[index.key]))}>
-                    {point?.bigMoves10d ?? ''}
+                  <td key={`${index.key}-net`} className={cn(cell, 'text-center', netClass(point?.netMoves10d, previous?.indexes[index.key]?.netMoves10d))}>
+                    {formatNet(point?.netMoves10d)}
                   </td>
                 )
               })}
@@ -125,14 +141,15 @@ export function MarketSignalTable({
                 <td key={`${index.key}-high`} className={cn(cell, 'text-center')}>{row.indexes[index.key]?.daysSinceHigh ?? ''}</td>
               ))}
               {indexes.map((index) => {
-                const trough = row.indexes[index.key]?.trough
-                return <td key={`${index.key}-trough`} className={cn(cell, 'text-center', trough && TROUGH_CLASS)}>{trough ? 'TROUGH' : ''}</td>
+                const below = row.indexes[index.key]?.belowHigh
+                return <td key={`${index.key}-below`} className={cn(cell, 'text-center', below && BELOW_HIGH_CLASS)}>{below ? 'BELOW' : ''}</td>
               })}
               {indexes.map((index) => (
-                <td key={`${index.key}-positive`} className={cn(cell, 'text-center')}>{row.indexes[index.key]?.positiveMoves10d ?? ''}</td>
+                <td key={`${index.key}-up`} className={cn(cell, 'text-center text-muted-foreground')}>{row.indexes[index.key]?.upDays10d ?? ''}</td>
               ))}
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>

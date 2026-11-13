@@ -12,6 +12,7 @@ import {
   MARKET_SIGNAL_REFERENCE_WORKBOOK,
   MARKET_SIGNAL_SPEC_VERSION,
   computeMarketSignal,
+  normalizeProviderCloses,
   type MarketSignalClose,
   type MarketSignalIndexKey,
 } from '@/lib/market-signal'
@@ -42,11 +43,13 @@ function barsToRequest(peakStartDate: string): number {
   return Math.ceil((Math.max(elapsed, 0) * 5) / 7) + 10
 }
 
-function toCloses(bars: DailyBar[], marketOpen: boolean): MarketSignalClose[] {
+function toCloses(bars: DailyBar[], marketOpen: boolean): { closes: MarketSignalClose[]; droppedDates: string[] } {
   const today = easternDate()
-  return bars
-    .filter((bar) => !(marketOpen && bar.date === today))
-    .map((bar) => ({ date: bar.date, close: bar.close }))
+  return normalizeProviderCloses(
+    bars
+      .filter((bar) => !(marketOpen && bar.date === today))
+      .map((bar) => ({ date: bar.date, close: bar.close }))
+  )
 }
 
 export async function GET(request: NextRequest) {
@@ -70,10 +73,13 @@ export async function GET(request: NextRequest) {
 
     const closesByIndex: Partial<Record<MarketSignalIndexKey, MarketSignalClose[]>> = {}
     const healthNotes: string[] = []
+    const droppedWeekendBars: Partial<Record<MarketSignalIndexKey, string[]>> = {}
     settled.forEach((result, position) => {
       const index = MARKET_SIGNAL_INDEXES[position]
       if (result.status === 'fulfilled') {
-        closesByIndex[index.key] = toCloses(result.value, marketOpen)
+        const { closes, droppedDates } = toCloses(result.value, marketOpen)
+        closesByIndex[index.key] = closes
+        if (droppedDates.length) droppedWeekendBars[index.key] = droppedDates.filter((date) => date >= MARKET_SIGNAL_CONFIG.peakStartDate)
       } else {
         console.error(`[Market Signal] failed to fetch ${index.providerSymbol}`, result.reason)
         closesByIndex[index.key] = []
@@ -87,11 +93,12 @@ export async function GET(request: NextRequest) {
       ...model,
       meta: buildResponseMeta(),
       methodology: {
-        workbookParity: 'formula-faithful-v1',
+        workbookParity: 'formula-faithful-v2',
         specVersion: MARKET_SIGNAL_SPEC_VERSION,
         sourceWorkbook: MARKET_SIGNAL_REFERENCE_WORKBOOK,
         sourceWorkbookSha256: MARKET_SIGNAL_REFERENCE_SHA256,
-        dataSource: `Massive daily index closes: ${MARKET_SIGNAL_INDEXES.map((index) => index.providerSymbol).join(', ')}`,
+        dataSource: `Massive daily index closes, rounded to cents: ${MARKET_SIGNAL_INDEXES.map((index) => index.providerSymbol).join(', ')}`,
+        droppedWeekendBars,
         partialDailyBarPolicy: marketOpen ? 'current session excluded' : 'latest returned daily bar accepted',
       },
     })

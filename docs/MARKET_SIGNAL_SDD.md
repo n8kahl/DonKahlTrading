@@ -1,15 +1,15 @@
 # SDD — Native Market Signal in Tucson Trader
 
-**Status:** formula-faithful port, v1  
+**Status:** formula-faithful port, v2  
 **Spec version:** 2026-11-13  
 **Reference workbook:** `Nasdaq_Tracker_Fixed.xlsx`, sheet `Market Signal`  
-**Reference SHA-256:** `7e79c4e751a80c0fe4cb51abd1ca0890d9f18604e538200cce8aff1c0cfa6c64`
+**Reference SHA-256:** `af9178de989171f979a433feba2443849a200372f7a02c4cd8d532478501e887`
 
 ## 1. Purpose
 
-Reproduce the `Market Signal` sheet of Don's Nasdaq Tracker workbook natively in Tucson Trader, the same way the ST Model was ported (`docs/ST_MODEL_SDD.md`). This is a faithful port of the repaired workbook, not a redesign: it does not place trades, tune thresholds or reinterpret the rules.
+Reproduce the `Market Signal` sheet of Don's Nasdaq Tracker workbook natively in Tucson Trader, the same way the ST Model was ported (`docs/ST_MODEL_SDD.md`). It does not place trades or tune thresholds.
 
-The workbook's own Read Me says the rules are *a rules-based adaptation, not a verified reproduction* of the forum author's table, and that *signals are descriptive, not buy/sell advice*. The page repeats both statements.
+The table follows a forum author's table of Nasdaq, Nasdaq-100 and PHLX Semiconductor moves. The signal column is a **rules-based reading of that table, not the author's own call**, and signals are descriptive, not buy or sell advice. The page says both.
 
 Runtime flow:
 
@@ -19,12 +19,24 @@ Runtime flow:
 |---|---|
 | Rule constants | `lib/market-signal/config.ts` |
 | Engine (pure, no I/O) | `lib/market-signal/engine.ts` |
-| Tests + workbook parity | `lib/market-signal/engine.test.ts` |
+| Tests + parity | `lib/market-signal/engine.test.ts` |
 | Parity fixture | `fixtures/market-signal-workbook.json` |
 | API route | `app/api/market-signal/route.ts` |
 | Page | `app/market-signal/page.tsx`, `components/market-signal-dashboard.tsx`, `components/market-signal-table.tsx` |
 
-## 2. Inputs
+## 2. Evidence
+
+In order of precedence:
+
+1. **The forum author's April 2025 table** (post "Tech Contagion: What I'd like to see" on zeelotes.org, supplied by the user). Recomputed from FRED closes, all 20 rows from 2025-03-28 to 2025-04-25 match on the 10-day net counts and on days since high. Those 20 rows are hard-coded in the tests. The post itself was read in the workbook-repair session, not in this port; the values here are as relayed from it.
+2. **The corrected workbook** (`Nasdaq_Tracker_Fixed.xlsx`, SHA above), which implements the same rules for the net count, days since high, the 10%-below-high flag and the signal. `fixtures/market-signal-workbook.json` holds its cached values for every row.
+
+Two rules that were open in the first version of this spec are settled by the author's table:
+
+- **The 10-day count is a net** (up days minus down days), not ups plus downs. It goes negative.
+- **The highest close is measured from 2025-01-02.** On 2025-03-28 the author shows 27 / 27 / 46 days since high, which only that start date reproduces for all three indexes.
+
+## 3. Inputs
 
 Three indexes, in sheet order:
 
@@ -34,41 +46,54 @@ Three indexes, in sheet order:
 | NDX100 | Nasdaq-100 | `NDX` | `I:NDX` | `NASDAQ100` |
 | PHLX SOX | PHLX Semiconductor | `SOX` | `I:SOX` | `NASDAQSOX` |
 
-The page reads daily closes through the existing Massive layer (`fetchDailyBars` in `lib/massive-api.ts`). No FRED client or other provider was added. The workbook itself still refreshes from FRED, so a close can differ between the two by provider rounding or revisions; the parity tests therefore run the engine on the workbook's own closes.
+The page reads daily closes through the existing Massive layer (`fetchDailyBars` in `lib/massive-api.ts`). No FRED client or other provider was added.
 
-The table starts on `peakStartDate` (2025-01-02). Closes before that date are ignored. While the market is open, today's partial bar is excluded.
+Provider hygiene (`normalizeProviderCloses`), applied before the rules and not part of them:
 
-## 3. Rules
+- **Weekend bars are dropped.** Massive returns a bar dated on a Saturday for all three tickers on 2025-10-25, 2026-09-12 and 2026-10-10. Left in, each would count as an extra trading day and shift the 10-day window and days since high. The API response lists what was dropped in `methodology.droppedWeekendBars`.
+- **Closes are rounded to cents.** Massive returns unrounded index values (for example 27366.16979…); the rules are defined on published closes.
+
+While the market is open, today's partial bar is excluded. The table starts on `peakStartDate`; earlier closes are ignored.
+
+Checked on 2026-11-13: with those two steps, live Massive data gives the same 468 trading days as the workbook from 2025-01-02 to 2026-11-12, and every close, ROC, net count, up-day count, days since high, below-high flag and signal is identical (8,892 cells, no differences).
+
+## 4. Rules
 
 All constants live in `MARKET_SIGNAL_CONFIG`:
 
 | Name | Value | Meaning |
 |---|---:|---|
 | `moveThreshold` | 0.025 | a daily move counts at 2.5% or more |
-| `windowTradingDays` | 10 | rolling count window |
-| `troughDepth` | 0.10 | TROUGH at 10% or more below the highest close |
-| `peakStartDate` | 2025-01-02 | first row and anchor for the highest close |
+| `windowTradingDays` | 10 | rolling window, including the current day |
+| `belowHighDepth` | 0.10 | "10% below high" at 10% or more below the highest close |
+| `peakStartDate` | 2025-01-02 | first row and start of the history for the highest close |
 | `signalQuorum` | 2 | "at least 2 of the 3 indexes" |
+| `troughSwing` | 0.10 | fall and rebound that define a trough date |
+| `troughIndexes` | `['SOX']` | indexes whose trough dates are marked |
 
-Per index, per trading day (a day on which that index has a close):
+Per index, per trading day (a day on which that index has a close; market holidays are not rows):
 
-1. **ROC** = close / last available prior close - 1. The first row has no ROC. A market holiday has no row; the next trading day's ROC is measured against the last close before the holiday.
-2. **+2.5% days (10d)** = number of days with ROC >= +2.5% among the last 10 trading days, including today. Workbook columns R:T.
-3. **Moves of 2.5% or more (10d)** = number of days with ROC >= +2.5% **plus** the number with ROC <= -2.5% in the same window. Workbook columns H:J, headed "10d net" (see open question 1).
+1. **ROC** = close / previous trading day's close - 1. The first row has no ROC. The 2.5% test uses the unrounded value: Nasdaq +2.50% on 2025-04-23 counts as an up day, NDX -2.46% on 2025-04-21 does not count as a down day.
+2. **10d net** = number of days with ROC >= +2.5% minus number of days with ROC <= -2.5%, over the last 10 trading days including today. Workbook columns H:J.
+3. **10d +2.5% days** = the up-day count alone. Workbook columns R:T, kept for reference; no rule reads it.
 4. **Days since high** = trading days since the most recent highest close since `peakStartDate`. A close equal to the running high resets the count to 0.
-5. **TROUGH** when close <= 90% of that highest close.
+5. **10% below high** = close <= 90% of that highest close. This is the live state, known on the day. Workbook columns N:P (cell text "TROUGH").
 
 Early rows use however many ROC values exist so far (fewer than 10).
 
-Daily signal, evaluated only when all three indexes have a ROC for the day (otherwise blank, as in the workbook):
+**Trough dates** (SOX only, as the author marks them): a closing-price zigzag. Once the close has fallen 10% or more from the running peak, the lowest close that follows is a trough on the first day the close is 10% or more above it. A trough is therefore **only known in hindsight**, on its confirmation date, and the low still forming at the end of the data is not shown. From 2025-01-02 this gives SOX troughs on 2025-04-08, 2025-04-21, 2025-11-20, 2025-12-17, 2026-03-30, 2026-06-10, 2026-07-29, 2026-09-14 and 2026-11-05; the author names 2025-04-21 and 2025-11-20 and highlights 2025-04-08. Trough dates are display only and feed no rule. The workbook has no equivalent column.
 
-1. **WARNING** if at least 2 of the 3 indexes are flagged TROUGH;
-2. otherwise **RECOVERY** if at least 2 of the 3 have one or more +2.5% days in the last 10 trading days;
+**Daily signal**, evaluated only when all three indexes have a net count for the day (otherwise blank, as in the workbook):
+
+1. **RECOVERY** if at least 2 of the 3 net counts are +1 or more;
+2. otherwise **WARNING** if at least 2 of the 3 indexes are 10% below high;
 3. otherwise **WATCH**.
 
-WARNING takes priority over RECOVERY.
+RECOVERY is checked first.
 
-## 4. Presentation
+Known difference from the author: he called his April 2025 "all go" on 2025-04-23, when the SOX net count alone turned +1. The 2-of-3 rule shows WARNING on 2025-04-21 to 2025-04-24 and RECOVERY on 2025-04-25. In November 2025 the rule and the author agree (RECOVERY on 2025-11-24 with net 1, 1, -1).
+
+## 5. Presentation
 
 Fill colours are the workbook's conditional-format colours:
 
@@ -76,36 +101,34 @@ Fill colours are the workbook's conditional-format colours:
 |---|---|---|
 | ROC | >= +2.5% | green `#16A34A`, white text |
 | ROC | <= -2.5% | red `#DC2626`, white text |
-| 10d moves | count >= 1 | light green `#C6EFCE`, dark green text |
-| 10d moves | count >= 1 and 0 on the previous trading day | yellow `#FFFF00` |
-| Trough | TROUGH | dark green `#15803D`, white bold |
+| 10d net | negative | red `#DC2626`, white text |
+| 10d net | positive | light green `#C6EFCE`, dark green text |
+| 10d net | positive and 0 on the previous trading day | yellow `#FFFF00` |
+| 10% below high | flagged | dark green `#15803D`, white bold |
 | Signal | RECOVERY / WARNING / WATCH | `#15803D` / `#B91C1C` / `#D97706`, white bold |
 
 Deliberate differences from the sheet, none of which change a value:
 
 - Rows are newest first, and market holidays have no row (the sheet lists every weekday to the end of 2027 and leaves holidays blank).
-- The Signal column sits next to the date instead of after the trough columns.
-- The yellow "first day" highlight compares with the previous trading day. The sheet compares with the previous row, so it never shows yellow on the day after a holiday.
-- Rows 2 to 11 of the sheet use a solid green fill for a positive count; the page uses the light green of rows 12 onward everywhere.
-- The H:J columns are labelled "10d moves >= 2.5%" rather than "10d net", because they count ups plus downs.
+- The Signal column sits next to the date.
+- The 10%-below-high cells read "BELOW" instead of "TROUGH", so the word trough means only the swing-low dates.
+- Trough dates are highlighted in the date column (amber, not a workbook colour) and listed under the table with the close, the fall from the peak and the confirmation date.
+- The yellow highlight compares with the previous trading day; the sheet compares with the previous row, so it never shows yellow on the day after a holiday.
+- Rows 2 to 11 of the sheet use a solid green fill for a positive net count; the page uses the light green of rows 12 onward everywhere.
 
-## 5. Data health
+## 6. Data health
 
 The response carries `health`:
 
 - `stale` when the indexes do not share the same latest date (the newest row then has no signal);
-- `degraded` when an index returns no closes, or when its history starts after `peakStartDate`. In the second case the highest close, days since high and TROUGH can no longer be trusted to match the workbook, and the page says so;
+- `degraded` when an index returns no closes, or when its history starts after `peakStartDate`. In the second case the highest close, days since high, the below-high flag and trough dates can no longer be trusted, and the page says so;
 - `current` otherwise.
-
-## 6. Open questions for Don
-
-These are recorded as they stand in the repaired workbook. Neither has been decided, and the port must not guess:
-
-1. **"10d net" (columns H:J): ups minus downs, or ups plus downs?** The workbook's Read Me describes the columns as gains *minus* losses, but the formulas (rows 12 onward in the original, every row after the repair) add them. The port follows the formulas. The signal is not affected either way: it reads the +2.5% day counts (R:T), not H:J. If Don wants minus, change `bigMoves10d` in `computeIndexSeries` and re-take the fixture.
-2. **Should the highest close stay anchored at 2025-01-02?** Days since high and TROUGH measure against the highest close since a fixed date, so the lookback grows without limit. A rolling window (for example 252 trading days) would behave differently after a long decline. The port keeps the fixed anchor as `peakStartDate`.
 
 ## 7. Verification
 
-- `fixtures/market-signal-workbook.json` holds the cached values of `Market Signal!A2:T487` (2025-01-02 to 2026-11-12, every weekday row, holidays as blank rows), extracted from the reference workbook.
-- `lib/market-signal/engine.test.ts` feeds the fixture's closes to the engine and checks ROC, both 10-day counts, days since high, TROUGH and the signal on every row; named cases cover the rows around the 2025-01-09 and 2025-01-20 holidays and the last 20 rows with data.
-- `e2e/market-signal.spec.ts` renders the page from the same fixture and checks values and colours in the browser.
+- `lib/market-signal/engine.test.ts`:
+  - the author's 20 rows (net counts, days since high 27..46 and 46..65, no row for the 2025-04-18 holiday), the threshold cases on 2025-04-21 and 2025-04-23, the signal on 2025-04-21..25, 2025-11-21, 2025-11-24 and 2026-11-12, and the nine SOX trough dates;
+  - every row of the workbook fixture (`Market Signal!A2:T487`, 2025-01-02 to 2026-11-12) for ROC, net, up days, days since high, below high and signal, with named cases for the rows around the 2025-01-09 and 2025-01-20 holidays and the last 20 rows with data;
+  - weekend-bar and rounding hygiene, and data health.
+- `e2e/market-signal.spec.ts` renders the page from the same fixture and checks values, colours, the trough list and the highlighted dates in the browser.
+- Live check against Massive: see section 3.
