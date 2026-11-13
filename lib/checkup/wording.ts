@@ -73,7 +73,7 @@ const OP_VERBS: Record<string, string> = {
 }
 
 export const DEPENDS_CAUTION =
-  'The right formula for these rows depends on your answer to the question about this column.'
+  'The right formula for these rows depends on which choice is made for this column (see the choices section).'
 
 export function offsetWording(args: {
   columns: ColumnRef[]
@@ -191,7 +191,7 @@ export function questionWording(args: {
     if (a && b) {
       return {
         title: `Should ${who} ${a} or ${b}?`,
-        explanation: `${capitalise(rowsText(args.rowsA))} ${a} (${plural(args.countA, 'cell', 'cells')}) where ${rowsText(args.rowsB)} ${b} (${plural(args.countB, 'cell', 'cells')}), and that is the only difference between the two formulas. One of them is a slip, and the more common one is not always the right one, so only you can say which you meant.`,
+        explanation: `${capitalise(rowsText(args.rowsA))} ${a} (${plural(args.countA, 'cell', 'cells')}) where ${rowsText(args.rowsB)} ${b} (${plural(args.countB, 'cell', 'cells')}), and that is the only difference between the two formulas. One of them is a slip, and the more common one is not always the right one.`,
         labelA: `${capitalise(a)}, as in ${rowsText(args.rowsA)}`,
         labelB: `${capitalise(b)}, as in ${rowsText(args.rowsB)}`,
       }
@@ -199,7 +199,7 @@ export function questionWording(args: {
   }
   return {
     title: `Which formula should ${who} use?`,
-    explanation: `${many ? 'These columns use' : 'This column uses'} two different formulas: one in ${rowsText(args.rowsA)} (${plural(args.countA, 'cell', 'cells')}) and another in ${rowsText(args.rowsB)} (${plural(args.countB, 'cell', 'cells')}). Neither is clearly the main one, so only you can say which is right.`,
+    explanation: `${many ? 'These columns use' : 'This column uses'} two different formulas: one in ${rowsText(args.rowsA)} (${plural(args.countA, 'cell', 'cells')}) and another in ${rowsText(args.rowsB)} (${plural(args.countB, 'cell', 'cells')}). Neither is clearly the main one, so one of them has to be chosen for the whole column.`,
     labelA: `The one in ${rowsText(args.rowsA)}`,
     labelB: `The one in ${rowsText(args.rowsB)}`,
   }

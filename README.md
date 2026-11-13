@@ -58,14 +58,16 @@ Open [http://localhost:3000](http://localhost:3000) to view the dashboard.
 
 ## Spreadsheet check-up
 
-`/checkup` takes one `.xlsx` workbook (up to 10 MB), says in plain words what it does, and lists what is wrong with it: formulas that read the wrong row, blank or typed-over cells in a column of formulas, rows that use a different formula from the rest of their column, error cells, and colour rules that cover only part of a column. Where two formulas share a column and neither is clearly the main one, it asks instead of guessing.
+`/checkup` takes one `.xlsx` workbook (up to 10 MB), says in plain words what it does, and lists what is wrong with it: formulas that read the wrong row, blank or typed-over cells in a column of formulas, rows that use a different formula from the rest of their column, error cells, and colour rules that cover only part of a column. It is written for someone who is neither a trader nor a spreadsheet user.
 
-- The workbook is read in memory by `POST /api/checkup`. It is never written to disk or the database and never re-saved.
-- The checks are plain code in `lib/checkup/` (no AI). Claude only rewrites the wording, and is sent the workbook's structure (tab names, headings, one formula per pattern, a few sample values) rather than its contents. If that call fails, the findings are shown with built-in wording.
+- Where two formulas share a column and the checks cannot tell which is intended, the page picks one, says why, and lets the reader switch. The choice follows any background the reader added (pasted text from the email or post the workbook is based on, or one screenshot); otherwise it follows what an experienced trader would do.
+- The workbook is read in memory by `POST /api/checkup`. Nothing uploaded is written to disk or the database, and the workbook is never re-saved.
+- The checks are plain code in `lib/checkup/` (no AI). Claude rewrites the wording and chooses between the two options of a question; it cannot add, drop or alter findings. It is sent the workbook's structure (tab names, headings, one formula per pattern, a few sample values) rather than its contents, plus the optional background. If that call fails, the findings are shown with built-in wording and no choice is made.
+- There is no passcode. Uploads are limited to 10 per 10 minutes per address, and AI write-ups to 10 per hour across all visitors; past that, findings are still shown with built-in wording.
 - Environment variables:
-  - `CHECKUP_PASSCODE` (required): shared passcode the page asks for. The route refuses every upload until this is set.
   - `ANTHROPIC_API_KEY`: enables the plain-language write-up.
   - `CHECKUP_MODEL` (optional): Claude model for the write-up. Defaults to `claude-opus-5-5`.
+  - `CHECKUP_AI_PER_HOUR` (optional): hourly cap on AI write-ups. Defaults to 10; 0 switches them off.
 - Try it without a real workbook: upload `fixtures/spreadsheet-checkup-sample.xlsx`, a made-up file with one of each fault (rebuild it with `npx tsx scripts/make-checkup-fixture.ts`).
 - From the command line: `npx tsx scripts/checkup-cli.ts path/to/workbook.xlsx` (add `--explain` for the Claude wording).
 

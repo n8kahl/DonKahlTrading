@@ -2,52 +2,44 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, ArrowLeft, FileSpreadsheet, KeyRound, Loader2, ShieldCheck, Upload } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, FileSpreadsheet, ImagePlus, Loader2, ShieldCheck, Upload, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { CheckupResults } from '@/components/checkup-results'
 import { cn } from '@/lib/utils'
-import { MAX_UPLOAD_BYTES } from '@/lib/checkup/limits'
+import { MAX_REFERENCE_CHARS, MAX_SCREENSHOT_BYTES, MAX_UPLOAD_BYTES, SCREENSHOT_TYPES } from '@/lib/checkup/limits'
 import type { CheckupResult } from '@/lib/checkup/types'
 
-const PASSCODE_KEY = 'tucson-trader-checkup-passcode'
 const STAGES = [
   'Opening the workbook…',
   'Checking every formula, row by row…',
   'Writing it up in plain words. This usually takes about a minute…',
 ]
 
-function loadPasscode(): string {
-  try {
-    return window.localStorage.getItem(PASSCODE_KEY) ?? ''
-  } catch {
-    return ''
-  }
-}
-
-function savePasscode(value: string | null) {
-  try {
-    if (value) window.localStorage.setItem(PASSCODE_KEY, value)
-    else window.localStorage.removeItem(PASSCODE_KEY)
-  } catch {
-    // Private windows may refuse storage; the passcode just has to be typed again.
-  }
-}
-
 export default function CheckupPage() {
-  const [passcode, setPasscode] = useState('')
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<CheckupResult | null>(null)
+  const [context, setContext] = useState('')
+  const [screenshot, setScreenshot] = useState<File | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const passcodeRef = useRef<HTMLInputElement>(null)
+  const shotRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    setPasscode(loadPasscode())
-  }, [])
+  const addScreenshot = (file: File | null | undefined) => {
+    if (!file) return
+    if (!SCREENSHOT_TYPES.includes(file.type)) {
+      setError('The screenshot needs to be a picture (PNG or JPEG).')
+      return
+    }
+    if (file.size > MAX_SCREENSHOT_BYTES) {
+      setError('That screenshot is larger than 3 MB. Try a smaller picture.')
+      return
+    }
+    setError(null)
+    setScreenshot(file)
+  }
 
   // Move the progress line along while the request is out.
   useEffect(() => {
@@ -61,50 +53,41 @@ export default function CheckupPage() {
     }
   }, [busy])
 
-  const check = useCallback(
-    async (file: File) => {
-      setError(null)
-      if (!file.name.toLowerCase().endsWith('.xlsx')) {
-        setError('Please choose an Excel workbook saved as .xlsx.')
+  const check = useCallback(async (file: File) => {
+    setError(null)
+    if (!file.name.toLowerCase().endsWith('.xlsx')) {
+      setError('Please choose an Excel workbook saved as .xlsx.')
+      return
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError('That file is larger than 10 MB, which is the most the check-up can take.')
+      return
+    }
+    if (context.length > MAX_REFERENCE_CHARS) {
+      setError('The pasted text is very long. Paste just the part that explains the rules and try again.')
+      return
+    }
+    setBusy(true)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      if (context.trim()) body.append('context', context.trim())
+      if (screenshot) body.append('screenshot', screenshot)
+      const response = await fetch('/api/checkup', { method: 'POST', body })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data) {
+        setError(data?.error ?? 'The check-up could not be run. Please try again in a moment.')
         return
       }
-      if (file.size > MAX_UPLOAD_BYTES) {
-        setError('That file is larger than 10 MB, which is the most the check-up can take.')
-        return
-      }
-      if (!passcode.trim()) {
-        setError('Type the passcode first, then choose the file again.')
-        passcodeRef.current?.focus()
-        return
-      }
-
-      setBusy(true)
-      try {
-        const body = new FormData()
-        body.append('file', file)
-        const response = await fetch('/api/checkup', {
-          method: 'POST',
-          headers: { 'x-checkup-passcode': passcode.trim() },
-          body,
-        })
-        const data = await response.json().catch(() => null)
-        if (!response.ok || !data) {
-          if (response.status === 401) savePasscode(null)
-          setError(data?.error ?? 'The check-up could not be run. Please try again in a moment.')
-          return
-        }
-        savePasscode(passcode.trim())
-        setResult(data as CheckupResult)
-        window.scrollTo({ top: 0 })
-      } catch {
-        setError('The check-up could not be reached. Check your connection and try again.')
-      } finally {
-        setBusy(false)
-        if (inputRef.current) inputRef.current.value = ''
-      }
-    },
-    [passcode]
-  )
+      setResult(data as CheckupResult)
+      window.scrollTo({ top: 0 })
+    } catch {
+      setError('The check-up could not be reached. Check your connection and try again.')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }, [context, screenshot])
 
   const onDrop = (event: React.DragEvent) => {
     event.preventDefault()
@@ -130,8 +113,8 @@ export default function CheckupPage() {
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="min-w-0">
-            <h1 className="text-base font-semibold">Spreadsheet check-up</h1>
-            <p className="truncate text-xs text-muted-foreground">See what a workbook does and what needs fixing, in plain words</p>
+            <h1 className="text-lg font-semibold">Spreadsheet check-up</h1>
+            <p className="truncate text-sm text-muted-foreground">See what a workbook does and what needs fixing, in plain words</p>
           </div>
         </div>
       </header>
@@ -155,25 +138,69 @@ export default function CheckupPage() {
           />
         ) : (
           <>
-            <div className="rounded-lg border bg-card p-4 sm:p-5">
-              <label htmlFor="checkup-passcode" className="flex items-center gap-2 text-sm font-semibold">
-                <KeyRound className="h-4 w-4 text-muted-foreground" aria-hidden />
-                Passcode
-              </label>
-              <Input
-                id="checkup-passcode"
-                ref={passcodeRef}
-                type="password"
-                autoComplete="off"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                placeholder="The passcode you were given"
-                className="mt-2 h-10 max-w-xs text-base"
+            <section className="rounded-lg border bg-card p-4 sm:p-5" aria-labelledby="checkup-context-title">
+              <h2 id="checkup-context-title" className="text-lg font-semibold">
+                1. Anything from Forever Grateful? <span className="font-normal text-muted-foreground">(optional)</span>
+              </h2>
+              <p className="mt-1 text-base text-muted-foreground">
+                If this workbook follows rules from an email or post, paste the text here or add a screenshot. The check-up will
+                use it to judge what the spreadsheet is supposed to do. Skip this if you do not have it.
+              </p>
+              <textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                onPaste={(e) => {
+                  // A picture pasted from the clipboard becomes the screenshot.
+                  const item = Array.from(e.clipboardData.items).find((i) => i.kind === 'file' && i.type.startsWith('image/'))
+                  if (item) {
+                    e.preventDefault()
+                    addScreenshot(item.getAsFile())
+                  }
+                }}
                 disabled={busy}
+                rows={4}
+                placeholder="Paste the email or post here"
+                aria-label="Text from the email or post"
+                data-testid="checkup-context"
+                className="mt-3 w-full rounded-md border border-input bg-background px-3 py-2 text-base leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
               />
-              <p className="mt-1.5 text-xs text-muted-foreground">This computer remembers it after the first check-up.</p>
-            </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {screenshot ? (
+                  <span className="inline-flex max-w-full items-center gap-2 rounded-md border border-border bg-muted/40 py-1 pl-3 pr-1 text-base">
+                    <span className="truncate">Screenshot added: {screenshot.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScreenshot(null)
+                        if (shotRef.current) shotRef.current.value = ''
+                      }}
+                      disabled={busy}
+                      aria-label="Remove the screenshot"
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </span>
+                ) : (
+                  <Button type="button" variant="outline" className="h-10 text-base" disabled={busy} onClick={() => shotRef.current?.click()}>
+                    <ImagePlus className="h-4 w-4" aria-hidden />
+                    Add a screenshot
+                  </Button>
+                )}
+                <input
+                  ref={shotRef}
+                  type="file"
+                  accept={SCREENSHOT_TYPES.join(',')}
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden
+                  data-testid="checkup-screenshot"
+                  onChange={(e) => addScreenshot(e.target.files?.[0])}
+                />
+              </div>
+            </section>
 
+            <h2 className="px-1 text-lg font-semibold">2. Your workbook</h2>
             <div
               role="button"
               tabIndex={busy ? -1 : 0}
@@ -202,7 +229,7 @@ export default function CheckupPage() {
               {busy ? (
                 <>
                   <Loader2 className="h-10 w-10 animate-spin text-primary" aria-hidden />
-                  <p className="text-base font-medium" role="status" aria-live="polite">
+                  <p className="text-lg font-medium" role="status" aria-live="polite">
                     {STAGES[stage]}
                   </p>
                 </>
@@ -212,10 +239,10 @@ export default function CheckupPage() {
                     <FileSpreadsheet className="h-7 w-7 text-emerald-700 dark:text-emerald-400" aria-hidden />
                   </span>
                   <div>
-                    <p className="text-lg font-semibold">Drop your Excel workbook here</p>
-                    <p className="text-sm text-muted-foreground">or click to choose it · one .xlsx file, up to 10 MB</p>
+                    <p className="text-xl font-semibold">Drop your Excel workbook here</p>
+                    <p className="text-base text-muted-foreground">or click to choose it · one .xlsx file, up to 10 MB</p>
                   </div>
-                  <Button type="button" tabIndex={-1} className="pointer-events-none">
+                  <Button type="button" tabIndex={-1} className="pointer-events-none h-11 px-6 text-base">
                     <Upload className="h-4 w-4" aria-hidden />
                     Choose a file
                   </Button>
@@ -236,9 +263,9 @@ export default function CheckupPage() {
               />
             </div>
 
-            <p className="flex items-start justify-center gap-2 text-sm text-muted-foreground">
+            <p className="flex items-start justify-center gap-2 text-base text-muted-foreground">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" aria-hidden />
-              Your original file is never changed, and it is not kept after the check-up.
+              Your original file is never changed. Nothing you add here is kept after the check-up.
             </p>
           </>
         )}

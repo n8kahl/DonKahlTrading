@@ -79,7 +79,7 @@ export type FindingKind =
   | 'formatting'
   /** a column uses several formulas and none is clearly the main one */
   | 'mixed'
-  /** (f) two formulas share the column and only the owner knows which is right */
+  /** (f) two formulas share the column and one has to be chosen */
   | 'question'
 
 export type Severity = 'high' | 'medium' | 'low'
@@ -140,6 +140,16 @@ export interface Finding {
   caution: string | null
   /** For kind = "question": the two choices. */
   options?: [QuestionOption, QuestionOption]
+  /**
+   * For kind = "question": which of the two choices an experienced trader would make, and why.
+   * Comes from the AI layer and can only ever name one of the two options above.
+   */
+  recommended?: {
+    key: 'a' | 'b'
+    reason: string
+    /** "author": the pasted email or screenshot settles it. "practice": general trading practice. */
+    basis: 'author' | 'practice'
+  }
   /** For a finding whose fix depends on a question: that question's id. */
   dependsOn?: string
   /** For kind = "formatting": the rule's colour (RRGGBB) and the range it should cover. */
@@ -194,7 +204,7 @@ export interface CheckupResult {
   structure: WorkbookStructure
   /** Problems, most serious first. Never includes kind = "question". */
   problems: Finding[]
-  /** Questions only the owner can answer. */
+  /** Choices between two formulas, each with a recommendation when the AI layer is available. */
   questions: Finding[]
   /** Three-sentence description of what the spreadsheet does. */
   summary: string
@@ -202,4 +212,6 @@ export interface CheckupResult {
   explainedByAI: boolean
   /** Why the AI wording is missing, in plain words (null when it is present). */
   aiNote: string | null
+  /** True when pasted text or a screenshot from the method's author was read for the write-up. */
+  usedReference: boolean
 }

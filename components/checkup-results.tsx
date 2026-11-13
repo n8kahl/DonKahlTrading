@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   ChevronDown,
   CircleHelp,
@@ -72,7 +73,7 @@ function Details({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <CollapsibleTrigger className="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <CollapsibleTrigger className="inline-flex min-h-9 items-center gap-1 rounded-sm text-base font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
         {open ? 'Hide the details' : 'Show the details'}
       </CollapsibleTrigger>
@@ -114,16 +115,16 @@ function ProblemCard({ finding, number }: { finding: Finding; number: number }) 
           aria-hidden
         />
         <div className="min-w-0 flex-1 space-y-2">
-          <h3 className="text-base font-semibold leading-snug">
+          <h3 className="text-lg font-semibold leading-snug">
             <span className="text-muted-foreground">{number}.</span> {finding.title}
           </h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[17px] leading-relaxed">{finding.explanation}</p>
+          <p className="text-sm text-muted-foreground">
             {KIND_LABEL[finding.kind]} · {whereText(finding)} · {plural(finding.cellCount, 'cell', 'cells')}
           </p>
-          <p className="text-[15px] leading-relaxed">{finding.explanation}</p>
           {finding.caution && (
-            <p className="rounded-md border border-amber-500/40 bg-amber-50 px-3 py-2 text-sm leading-relaxed text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
-              <span className="font-semibold">Check before fixing.</span> {finding.caution}
+            <p className="rounded-md border border-amber-500/40 bg-amber-50 px-3 py-2 text-base leading-relaxed text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+              <span className="font-semibold">Note.</span> {finding.caution}
             </p>
           )}
           <Details>
@@ -150,55 +151,158 @@ function ProblemCard({ finding, number }: { finding: Finding; number: number }) 
 }
 
 function QuestionCard({ finding }: { finding: Finding }) {
-  const [choice, setChoice] = useState<'a' | 'b' | null>(null)
   const options = finding.options ?? []
+  const recommended = finding.recommended ?? null
+  const [choice, setChoice] = useState<'a' | 'b' | null>(recommended ? recommended.key : null)
+  const picked = options.find((o) => o.key === choice) ?? null
+  const other = options.find((o) => o.key !== choice) ?? null
+  const usingRecommended = recommended !== null && choice === recommended.key
+
   return (
     <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-4 sm:p-5" data-testid="checkup-question">
       <div className="flex items-start gap-3">
         <CircleHelp className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
         <div className="min-w-0 flex-1 space-y-3">
-          <h3 className="text-base font-semibold leading-snug">{finding.title}</h3>
-          <p className="text-xs text-muted-foreground">{whereText(finding)}</p>
-          <p className="text-[15px] leading-relaxed">{finding.explanation}</p>
-          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={finding.title}>
-            {options.map((o) => {
-              const picked = choice === o.key
-              return (
-                <button
-                  key={o.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={picked}
-                  onClick={() => setChoice(o.key)}
-                  className={cn(
-                    'rounded-md border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    picked
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background hover:border-primary/60 hover:bg-accent'
-                  )}
-                >
-                  <span className="block text-[15px] font-semibold leading-snug">{o.label}</span>
-                  <span className={cn('mt-1 block text-xs', picked ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
-                    Used now in {rowsText(o.rows)} · {plural(o.count, 'cell', 'cells')}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          {choice && (
-            <p className="text-sm text-muted-foreground" role="status">
-              Noted. Your answer stays on this page for now; it will be used once fixed copies are available.
-            </p>
+          <h3 className="text-lg font-semibold leading-snug">{finding.title}</h3>
+          <p className="text-[17px] leading-relaxed">{finding.explanation}</p>
+
+          {recommended && picked ? (
+            <>
+              <div
+                className="rounded-md border border-emerald-600/40 bg-emerald-50 px-4 py-3 dark:bg-emerald-950/30"
+                data-testid="checkup-recommendation"
+              >
+                <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+                  {!usingRecommended
+                    ? 'Your choice'
+                    : recommended.basis === 'author'
+                      ? 'What the author’s rules say'
+                      : 'What an experienced trader would do'}
+                </div>
+                <div className="mt-1 flex items-start gap-2 text-lg font-semibold leading-snug">
+                  <Check className="mt-1 h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden />
+                  {picked.label}
+                </div>
+                {usingRecommended ? (
+                  <p className="mt-2 text-[17px] leading-relaxed">{recommended.reason}</p>
+                ) : (
+                  <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                    This is not the recommended one.
+                  </p>
+                )}
+              </div>
+              <p className="text-base text-muted-foreground" role="status">
+                {usingRecommended
+                  ? 'This has been chosen for you. You do not need to do anything.'
+                  : 'Your choice stays on this page for now.'}
+              </p>
+              {other && (
+                <Button variant="outline" className="h-auto min-h-10 whitespace-normal py-2 text-left text-base" onClick={() => setChoice(other.key)}>
+                  {usingRecommended ? `Use the other one instead: ${other.label}` : `Go back to the recommended one: ${other.label}`}
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-base text-muted-foreground">
+                A recommendation was not available this time, so nothing has been chosen yet.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label={finding.title}>
+                {options.map((o) => {
+                  const on = choice === o.key
+                  return (
+                    <button
+                      key={o.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setChoice(o.key)}
+                      className={cn(
+                        'rounded-md border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        on ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:border-primary/60 hover:bg-accent'
+                      )}
+                    >
+                      <span className="block text-[17px] font-semibold leading-snug">{o.label}</span>
+                      <span className={cn('mt-1 block text-sm', on ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                        Used now in {rowsText(o.rows)} · {plural(o.count, 'cell', 'cells')}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {choice && (
+                <p className="text-base text-muted-foreground" role="status">
+                  Noted. Your choice stays on this page for now.
+                </p>
+              )}
+            </>
           )}
+
+          <p className="text-sm text-muted-foreground">{whereText(finding)}</p>
           <Details>
             {options.map((o, i) => (
-              <Formula key={o.key} label={`Choice ${i + 1}, as it would read in ${o.cell}`} value={o.formula} />
+              <div key={o.key} className="space-y-1">
+                <Formula label={`Version ${i + 1}: ${o.label}`} value={o.formula} />
+                <p className="text-sm text-muted-foreground">
+                  As it would read in {o.cell}. Used now in {rowsText(o.rows)} ({plural(o.count, 'cell', 'cells')}).
+                </p>
+              </div>
             ))}
             <Examples examples={finding.examples} />
           </Details>
         </div>
       </div>
     </div>
+  )
+}
+
+function ProblemGroup({
+  title,
+  note,
+  findings,
+  startAt,
+  startOpen,
+}: {
+  title: string
+  note: string
+  findings: Finding[]
+  startAt: number
+  startOpen: boolean
+}) {
+  const [open, setOpen] = useState(startOpen)
+  if (findings.length === 0) return null
+  const list = (
+    <ol className="space-y-3">
+      {findings.map((p, i) => (
+        <ProblemCard key={p.id} finding={p} number={startAt + i} />
+      ))}
+    </ol>
+  )
+  if (startOpen) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-lg font-semibold">{title}</h3>
+          <p className="text-base text-muted-foreground">{note}</p>
+        </div>
+        {list}
+      </div>
+    )
+  }
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="space-y-3">
+      <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span>
+          <span className="block text-lg font-semibold">{title}</span>
+          <span className="block text-base text-muted-foreground">{note}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1 text-base font-medium text-primary">
+          {open ? 'Hide' : 'Show'}
+          <ChevronDown className={cn('h-5 w-5 transition-transform', open && 'rotate-180')} />
+        </span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>{list}</CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -238,17 +342,35 @@ export function CheckupResults({ result, onReset }: { result: CheckupResult; onR
   const columnCount = result.structure.sheets.reduce((n, s) => n + s.columns.length, 0)
   const clean = problems.length === 0 && questions.length === 0
 
+  const serious = problems.filter((p) => p.severity === 'high')
+  const smaller = problems.filter((p) => p.severity === 'medium')
+  const colours = problems.filter((p) => p.severity === 'low')
+  const decided = questions.filter((q) => q.recommended).length
+  const allDecided = questions.length > 0 && decided === questions.length
+
+  const inShort: string[] = []
+  if (serious.length > 0) inShort.push(`${plural(serious.length, 'place', 'places')} where the numbers are probably wrong`)
+  if (smaller.length > 0) inShort.push(`${plural(smaller.length, 'smaller thing', 'smaller things')} to tidy up`)
+  if (colours.length > 0) inShort.push(`${plural(colours.length, 'colouring gap', 'colouring gaps')}`)
+  if (questions.length > 0) {
+    inShort.push(
+      allDecided
+        ? `${plural(questions.length, 'choice', 'choices')} made for you`
+        : `${plural(questions.length, 'choice', 'choices')} still to make`
+    )
+  }
+
   return (
-    <div className="space-y-5" data-testid="checkup-results">
+    <div className="space-y-5 text-[17px]" data-testid="checkup-results">
       {/* File */}
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4 sm:p-5">
         <div className="flex min-w-0 items-center gap-3">
-          <FileSpreadsheet className="h-8 w-8 shrink-0 text-emerald-600 dark:text-emerald-500" aria-hidden />
+          <FileSpreadsheet className="h-9 w-9 shrink-0 text-emerald-600 dark:text-emerald-500" aria-hidden />
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold" title={result.fileName}>
+            <div className="truncate text-lg font-semibold" title={result.fileName}>
               {result.fileName}
             </div>
-            <div className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 text-base text-muted-foreground">
               <span>{formatSize(result.fileSize)}</span>
               <span aria-hidden>·</span>
               <span className="inline-flex items-center gap-1">
@@ -258,31 +380,38 @@ export function CheckupResults({ result, onReset }: { result: CheckupResult; onR
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={onReset}>
+        <Button variant="outline" className="h-10 text-base" onClick={onReset}>
           Check another file
         </Button>
       </section>
 
+      {result.usedReference && (
+        <p className="flex items-start gap-2 rounded-md border border-emerald-600/30 bg-emerald-50 px-3 py-2 text-base dark:bg-emerald-950/30" data-testid="checkup-reference-note">
+          <Check className="mt-1 h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-400" aria-hidden />
+          The notes or screenshot you added were read and used to explain this workbook. They were not kept.
+        </p>
+      )}
+
       {result.aiNote && (
-        <p className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground" data-testid="checkup-ai-note">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <p className="flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-base text-muted-foreground" data-testid="checkup-ai-note">
+          <Info className="mt-1 h-4 w-4 shrink-0" aria-hidden />
           {result.aiNote}
         </p>
       )}
 
       {/* Summary */}
       <section className="rounded-lg border bg-card p-4 sm:p-5">
-        <h2 className="text-lg font-semibold">What this spreadsheet does</h2>
-        <p className="mt-2 text-[15px] leading-relaxed" data-testid="checkup-summary">
+        <h2 className="text-xl font-semibold">What this spreadsheet does</h2>
+        <p className="mt-2 leading-relaxed" data-testid="checkup-summary">
           {result.summary}
         </p>
         {result.structure.features.length > 0 && (
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-base text-muted-foreground">
             It also contains {result.structure.features.join(', ')}. The check-up only reads the file, so those are untouched.
           </p>
         )}
         <Collapsible open={columnsOpen} onOpenChange={setColumnsOpen} className="mt-3">
-          <CollapsibleTrigger className="inline-flex items-center gap-1 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <CollapsibleTrigger className="inline-flex min-h-9 items-center gap-1 rounded-sm text-base font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <ChevronDown className={cn('h-4 w-4 transition-transform', columnsOpen && 'rotate-180')} />
             {columnsOpen ? 'Hide the column-by-column list' : `Column by column (${columnCount})`}
           </CollapsibleTrigger>
@@ -293,37 +422,80 @@ export function CheckupResults({ result, onReset }: { result: CheckupResult; onR
       </section>
 
       {/* Problems */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">
-          {clean ? 'Nothing wrong found' : problems.length === 0 ? 'No problems found' : `${plural(problems.length, 'problem', 'problems')} found`}
-        </h2>
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold">
+            {clean ? 'Nothing wrong found' : problems.length === 0 ? 'No problems found' : 'What the check-up found'}
+          </h2>
+          {inShort.length > 0 && (
+            <ul className="mt-2 space-y-1 leading-relaxed" data-testid="checkup-in-short">
+              {inShort.map((line) => (
+                <li key={line} className="flex items-start gap-2">
+                  <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-foreground" aria-hidden />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         {problems.length === 0 ? (
-          <p className="flex items-start gap-2 rounded-lg border bg-card p-4 text-[15px]">
+          <p className="flex items-start gap-2 rounded-lg border bg-card p-4">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-500" aria-hidden />
             Every column of formulas is consistent from top to bottom, no cells show errors, and the colour rules cover their columns.
           </p>
         ) : (
-          <ol className="space-y-3">
-            {problems.map((p, i) => (
-              <ProblemCard key={p.id} finding={p} number={i + 1} />
-            ))}
-          </ol>
+          <>
+            <ProblemGroup
+              title="Numbers that are probably wrong"
+              note="These change what the spreadsheet tells you, so they matter most."
+              findings={serious}
+              startAt={1}
+              startOpen
+            />
+            <ProblemGroup
+              title={`${plural(smaller.length, 'smaller thing', 'smaller things')} to tidy up`}
+              note="A few rows that do not follow the rest of their column. Usually harmless, but worth making consistent."
+              findings={smaller}
+              startAt={serious.length + 1}
+              startOpen={serious.length === 0}
+            />
+            <ProblemGroup
+              title={`${plural(colours.length, 'colouring gap', 'colouring gaps')}`}
+              note="Rows that miss out on the red and green colouring. The numbers themselves are not affected."
+              findings={colours}
+              startAt={serious.length + smaller.length + 1}
+              startOpen={serious.length === 0 && smaller.length === 0}
+            />
+          </>
         )}
       </section>
 
-      {/* Questions */}
+      {/* Choices */}
       {questions.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">
-            {questions.length === 1 ? 'One question only you can answer' : `${questions.length} questions only you can answer`}
-          </h2>
+          <div>
+            <h2 className="text-xl font-semibold">
+              {allDecided
+                ? `${plural(questions.length, 'choice', 'choices')} made for you`
+                : questions.length === 1
+                  ? 'One choice still to make'
+                  : `${questions.length} choices still to make`}
+            </h2>
+            <p className="text-base text-muted-foreground">
+              {allDecided
+                ? result.usedReference
+                  ? 'In these places the spreadsheet does the same sum two different ways. The check-up has picked one for you, following the notes or screenshot you added where they settle it and an experienced trader’s practice where they do not. You only need to act if you disagree.'
+                  : 'In these places the spreadsheet does the same sum two different ways. The check-up has picked the way an experienced trader would do it and says why. You only need to act if you disagree.'
+                : 'In these places the spreadsheet does the same sum two different ways, and one has to be picked.'}
+            </p>
+          </div>
           {questions.map((q) => (
             <QuestionCard key={q.id} finding={q} />
           ))}
         </section>
       )}
 
-      <p className="pb-6 text-center text-sm text-muted-foreground">Fixed copy coming soon</p>
+      <p className="pb-6 text-center text-base text-muted-foreground">Fixed copy coming soon</p>
     </div>
   )
 }

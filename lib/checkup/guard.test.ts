@@ -1,16 +1,18 @@
-import { describe, expect, it } from 'vitest'
-import { checkPasscode } from './guard'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_AI_PER_HOUR, takeAiWriteUp } from './guard'
 
-describe('passcode', () => {
-  it('fails closed when no passcode is configured', () => {
-    expect(checkPasscode('anything', undefined)).toBe('not-configured')
-    expect(checkPasscode('anything', '  ')).toBe('not-configured')
+describe('hourly allowance of AI write-ups', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('allows the configured number per hour, then stops', () => {
+    const taken: boolean[] = []
+    for (let i = 0; i < DEFAULT_AI_PER_HOUR + 2; i++) taken.push(takeAiWriteUp())
+    expect(taken.filter(Boolean)).toHaveLength(DEFAULT_AI_PER_HOUR)
+    expect(taken.slice(-2)).toEqual([false, false])
   })
-  it('accepts only the configured passcode', () => {
-    expect(checkPasscode('tucson', 'tucson')).toBe('ok')
-    expect(checkPasscode(' tucson ', 'tucson')).toBe('ok')
-    expect(checkPasscode('Tucson', 'tucson')).toBe('wrong')
-    expect(checkPasscode('', 'tucson')).toBe('wrong')
-    expect(checkPasscode(null, 'tucson')).toBe('wrong')
+
+  it('can be switched off', () => {
+    vi.stubEnv('CHECKUP_AI_PER_HOUR', '0')
+    expect(takeAiWriteUp()).toBe(false)
   })
 })

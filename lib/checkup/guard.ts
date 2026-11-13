@@ -1,29 +1,31 @@
 // =============================================================================
-// Spreadsheet check-up - passcode guard
+// Spreadsheet check-up - limits
 //
-// The app has no login and each check-up costs an AI call, so the upload route
-// needs the shared passcode from the CHECKUP_PASSCODE environment variable.
+// The app has no login and the page is open to anyone with the link. Checking a
+// workbook is cheap; the plain-language write-up is an AI call that costs money.
+// So uploads are rate-limited per address, and the write-up has an hourly cap
+// across everyone. Past the cap, findings are still shown with built-in wording.
 // =============================================================================
 
-import { createHash, timingSafeEqual } from 'node:crypto'
-import type { RateLimitConfig } from '@/lib/rate-limit'
+import { checkRateLimit, type RateLimitConfig } from '@/lib/rate-limit'
 
-export const PASSCODE_ENV = 'CHECKUP_PASSCODE'
-export const PASSCODE_HEADER = 'x-checkup-passcode'
-
-/** Ten tries per ten minutes per address, counting wrong passcodes too. */
+/** Ten uploads per ten minutes per address. */
 export const CHECKUP_RATE_LIMIT: RateLimitConfig = {
   windowMs: 10 * 60 * 1000,
   maxRequests: 10,
 }
 
-export type PasscodeCheck = 'ok' | 'wrong' | 'not-configured'
+/** AI write-ups per hour across all visitors. Override with CHECKUP_AI_PER_HOUR. */
+export const DEFAULT_AI_PER_HOUR = 10
 
-export function checkPasscode(supplied: string | null | undefined, expected = process.env[PASSCODE_ENV]): PasscodeCheck {
-  if (!expected || expected.trim() === '') return 'not-configured'
-  if (!supplied) return 'wrong'
-  // Compare digests so the comparison takes the same time whatever was typed.
-  const a = createHash('sha256').update(supplied.trim()).digest()
-  const b = createHash('sha256').update(expected.trim()).digest()
-  return timingSafeEqual(a, b) ? 'ok' : 'wrong'
+function aiPerHour(): number {
+  const n = Number(process.env.CHECKUP_AI_PER_HOUR)
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_AI_PER_HOUR
+}
+
+/** Take one write-up from this hour's allowance. False when it is used up. */
+export function takeAiWriteUp(): boolean {
+  const max = aiPerHour()
+  if (max === 0) return false
+  return checkRateLimit('checkup:ai-write-up', { windowMs: 60 * 60 * 1000, maxRequests: max }).allowed
 }
