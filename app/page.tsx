@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
 import Image from "next/image"
-import { AlertCircle, Share2, Activity, Loader2, Signal } from "lucide-react"
+import { AlertCircle, Share2, Activity, Loader2, Signal, FileSpreadsheet } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ExportMenu } from "@/components/export-menu"
 import { DashboardControls, type DashboardConfig } from "@/components/dashboard-controls"
@@ -196,6 +196,12 @@ export default function DashboardPage() {
                 <Link href="/market-signal" aria-label="Market Signal">
                   <Signal className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
                   <span className="hidden sm:inline text-xs">Market Signal</span>
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline" className="h-10 sm:h-8 px-3">
+                <Link href="/checkup" aria-label="Spreadsheet check-up">
+                  <FileSpreadsheet className="h-4 w-4 sm:h-3.5 sm:w-3.5 sm:mr-1.5" />
+                  <span className="hidden sm:inline text-xs">Spreadsheet check-up</span>
                 </Link>
               </Button>
               <ThemeToggle />
